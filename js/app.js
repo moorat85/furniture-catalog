@@ -16,7 +16,7 @@
   function buildStandardIndex() {
     standardIndex = {};
     standards.categories.forEach((cat) => {
-      cat.params.forEach((p) => {
+      (cat.params || []).forEach((p) => {
         standardIndex[p.key] = { ...p, categoryName: cat.name, categoryId: cat.id };
       });
     });
@@ -63,8 +63,14 @@
         <p class="page-sub">Единые параметры и правила, на которые опираются все модели каталога. Пока редактируется прямо в <code>data/standards.json</code> — в будущем здесь будет редактируемая страница с автоматическим пересчётом связанных моделей.</p>
       </div>
       ${standards.categories
-        .map(
-          (cat) => `
+        .filter((cat) => cat.visible !== false)
+        .map((cat) => (cat.type === "swatches" ? renderSwatchCategory(cat) : renderParamsCategory(cat)))
+        .join("")}
+    `;
+  }
+
+  function renderParamsCategory(cat) {
+    return `
         <section class="standards-category" id="cat-${cat.id}">
           <h2>${cat.name}</h2>
           <table class="params-table">
@@ -84,10 +90,25 @@
                 .join("")}
             </tbody>
           </table>
-        </section>`
-        )
-        .join("")}
-    `;
+        </section>`;
+  }
+
+  function renderSwatchCategory(cat) {
+    return `
+        <section class="standards-category" id="cat-${cat.id}">
+          <h2>${cat.name}</h2>
+          <div class="swatch-row">
+            ${(cat.swatches || [])
+              .map(
+                (s) => `
+              <div class="swatch">
+                <span class="swatch-circle" style="background:${s.color};${s.bordered ? "" : "border-color:transparent;"}"></span>
+                <span class="swatch-label">${s.label}</span>
+              </div>`
+              )
+              .join("")}
+          </div>
+        </section>`;
   }
 
   function pluralRu(n) {

@@ -101,9 +101,14 @@ a { color: inherit; text-decoration: none; }
 }
 
 .nav-item.nav-pinned {
-  background: var(--bg);
-  color: var(--blue);
   flex-shrink: 0;
+}
+
+.nav-item.nav-pinned:hover { background: var(--bg); }
+
+.nav-item.nav-pinned.is-active {
+  background: var(--blue-soft);
+  color: var(--blue);
 }
 
 .nav-icon {
@@ -169,7 +174,7 @@ a { color: inherit; text-decoration: none; }
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 36px;
+  gap: 44px;
   padding: 44px 60px 120px 28px;
   max-width: 1120px;
 }
@@ -375,7 +380,7 @@ a { color: inherit; text-decoration: none; }
   padding-left: 12px;
 }
 
-/* ---------- material swatches (доступно, но пока не используется данными) ---------- */
+/* ---------- material swatches (блок «ЛДСП») ---------- */
 .swatch-row {
   display: flex;
   flex-wrap: wrap;

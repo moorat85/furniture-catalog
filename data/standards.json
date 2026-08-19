@@ -10,8 +10,21 @@
       ]
     },
     {
+      "id": "materials",
+      "name": "ЛДСП",
+      "type": "swatches",
+      "swatches": [
+        { "label": "Белый", "color": "#FFFFFF", "bordered": true },
+        { "label": "Кофейный", "color": "#E8E2E3" },
+        { "label": "Деревянный", "color": "#D4B57F" },
+        { "label": "Темно-серый", "color": "#898F97" },
+        { "label": "Оливковый", "color": "#6F8160" }
+      ]
+    },
+    {
       "id": "sofa",
       "name": "Диваны",
+      "visible": false,
       "params": [
         { "key": "sofa-seat-height", "label": "Высота сиденья", "value": "420–450", "unit": "мм", "rule": "От пола до верха несжатой подушки." },
         { "key": "sofa-seat-depth", "label": "Глубина сиденья", "value": "550–600", "unit": "мм", "rule": "" },
@@ -22,6 +35,7 @@
     {
       "id": "table",
       "name": "Столы",
+      "visible": false,
       "params": [
         { "key": "table-height", "label": "Высота стола (обеденный)", "value": "750", "unit": "мм", "rule": "Стандарт для обеденной группы." },
         { "key": "table-clearance", "label": "Просвет под столешницей", "value": "мин. 620", "unit": "мм", "rule": "До царги/ящика — с учётом посадки ног." },
@@ -31,6 +45,7 @@
     {
       "id": "chair",
       "name": "Стулья",
+      "visible": false,
       "params": [
         { "key": "chair-seat-height", "label": "Высота сиденья", "value": "450–470", "unit": "мм", "rule": "От пола." },
         { "key": "chair-seat-width", "label": "Ширина сиденья", "value": "420–460", "unit": "мм", "rule": "" }
@@ -39,6 +54,7 @@
     {
       "id": "storage",
       "name": "Хранение",
+      "visible": false,
       "params": [
         { "key": "shelf-span-max", "label": "Макс. пролёт полки без опоры", "value": "800", "unit": "мм", "rule": "Для ДСП/МДФ 18 мм при обычной нагрузке; массив — до 1000 мм." },
         { "key": "panel-thickness", "label": "Толщина корпусной панели", "value": "18", "unit": "мм", "rule": "Стандарт для корпусной мебели." }
