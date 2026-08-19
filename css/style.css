@@ -60,14 +60,11 @@ a { color: inherit; text-decoration: none; }
   justify-content: center;
   width: 30px;
   height: 30px;
-  border-radius: 7px;
-  background: var(--black);
-  color: var(--white);
 }
 
 .brand-icon svg {
-  width: 14px;
-  height: 14px;
+  width: 100%;
+  height: 100%;
 }
 
 .sidebar-nav {
@@ -98,10 +95,16 @@ a { color: inherit; text-decoration: none; }
 }
 
 .nav-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 16px;
-  text-align: center;
-  font-size: 13px;
   opacity: 0.85;
+}
+
+.nav-icon svg {
+  width: 15px;
+  height: 15px;
 }
 
 .nav-pinned { margin-bottom: 2px; }
