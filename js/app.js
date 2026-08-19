@@ -23,13 +23,29 @@
   }
 
   function buildModelNav() {
-    els.modelNavList.innerHTML = models
+    const groups = [];
+    const groupIndex = {};
+    models.forEach((m) => {
+      const key = m.categoryLabel || "Прочее";
+      if (!(key in groupIndex)) {
+        groupIndex[key] = groups.length;
+        groups.push({ label: key, items: [] });
+      }
+      groups[groupIndex[key]].items.push(m);
+    });
+
+    els.modelNavList.innerHTML = groups
       .map(
-        (m) => `
-        <a href="#model/${m.id}" class="nav-model-item" data-nav="model/${m.id}">
-          <span>${m.name}</span>
-          <span class="nav-model-cat">${m.categoryLabel}</span>
-        </a>`
+        (g) => `
+        <div class="nav-group">
+          <p class="nav-section-label">${g.label}</p>
+          ${g.items
+            .map(
+              (m) => `
+            <a href="#model/${m.id}" class="nav-model-item" data-nav="model/${m.id}">${m.name}</a>`
+            )
+            .join("")}
+        </div>`
       )
       .join("");
   }
@@ -50,10 +66,9 @@
           (cat) => `
         <section class="standards-category" id="cat-${cat.id}">
           <h2>${cat.name}</h2>
-          <p class="cat-count">${cat.params.length} параметр${pluralRu(cat.params.length)}</p>
           <table class="params-table">
             <thead>
-              <tr><th>Параметр</th><th>Значение</th><th>Правило / комментарий</th></tr>
+              <tr><th>Параметр</th><th>Значение</th><th>Комментарий</th></tr>
             </thead>
             <tbody>
               ${cat.params
