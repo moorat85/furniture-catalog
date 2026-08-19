@@ -358,6 +358,99 @@ a { color: inherit; text-decoration: none; }
   padding-left: 12px;
 }
 
+/* ---------- auth gate ---------- */
+.auth-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--white);
+}
+
+.auth-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+  width: 100%;
+  max-width: 280px;
+  text-align: center;
+  padding: 24px;
+}
+
+.auth-card .brand-icon {
+  width: 64px;
+  height: 64px;
+  font-size: 28px;
+  border-radius: 16px;
+}
+
+.pin-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  height: 22px;
+}
+
+.pin-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--gray-200);
+  transition: background 0.12s ease, transform 0.12s ease;
+}
+
+.pin-dot.is-filled {
+  background: var(--gray-700);
+  transform: scale(1.05);
+}
+
+.pin-dot.is-cursor {
+  width: 2px;
+  height: 22px;
+  border-radius: 1px;
+  background: var(--gray-700);
+  animation: pin-blink 1s step-end infinite;
+}
+
+@keyframes pin-blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+.auth-pin-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  border: none;
+  padding: 0;
+  cursor: default;
+}
+
+.auth-pin-input:focus { outline: none; }
+
+.auth-error {
+  color: #c0392b;
+  font-size: 12.5px;
+  margin: 0;
+  position: absolute;
+  bottom: -28px;
+}
+
+.auth-gate.shake .auth-card { animation: pin-shake 0.3s ease; }
+
+@keyframes pin-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  75% { transform: translateX(6px); }
+}
+
 @media (max-width: 760px) {
   .sidebar { display: none; }
   .content { padding: 24px 20px 60px; }

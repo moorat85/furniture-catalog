@@ -11,7 +11,29 @@
 </head>
 <body>
 
-<div class="app">
+<div class="auth-gate" id="authGate">
+  <div class="auth-card">
+    <span class="brand-icon" aria-hidden="true">◆</span>
+    <div class="pin-dots" id="pinDots">
+      <span class="pin-dot"></span>
+      <span class="pin-dot"></span>
+      <span class="pin-dot"></span>
+      <span class="pin-dot"></span>
+    </div>
+    <input
+      type="password"
+      id="authInput"
+      class="auth-pin-input"
+      inputmode="numeric"
+      pattern="[0-9]*"
+      autocomplete="off"
+      autofocus
+    >
+    <p class="auth-error" id="authError" hidden>Неверный код</p>
+  </div>
+</div>
+
+<div class="app" id="app" hidden>
 
   <aside class="sidebar">
     <div class="sidebar-brand">
@@ -35,6 +57,7 @@
 
 </div>
 
+<script src="js/auth.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
