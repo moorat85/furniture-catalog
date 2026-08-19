@@ -1,0 +1,63 @@
+[
+  {
+    "id": "sofa-orma",
+    "name": "Диван «Орма»",
+    "category": "sofa",
+    "categoryLabel": "Диваны",
+    "status": "В работе",
+    "linkedStandards": ["sofa-seat-height", "sofa-seat-depth", "sofa-arm-height", "sofa-back-height", "min-leg"],
+    "specs": [
+      { "label": "Ширина", "value": "2200", "unit": "мм" },
+      { "label": "Глубина", "value": "950", "unit": "мм" },
+      { "label": "Высота", "value": "800", "unit": "мм" },
+      { "label": "Материал каркаса", "value": "Массив берёзы" },
+      { "label": "Материал обивки", "value": "Букле" }
+    ],
+    "drawings": [
+      { "label": "Вид спереди" },
+      { "label": "Вид сбоку" },
+      { "label": "Вид сверху" },
+      { "label": "Узел ножки" }
+    ],
+    "notes": "Черновой пример модели — данные условные."
+  },
+  {
+    "id": "table-lino",
+    "name": "Стол «Лино»",
+    "category": "table",
+    "categoryLabel": "Столы",
+    "status": "Черновик",
+    "linkedStandards": ["table-height", "table-clearance", "tabletop-thickness", "min-leg"],
+    "specs": [
+      { "label": "Длина", "value": "1800", "unit": "мм" },
+      { "label": "Ширина", "value": "900", "unit": "мм" },
+      { "label": "Высота", "value": "750", "unit": "мм" },
+      { "label": "Материал", "value": "Дуб массив" }
+    ],
+    "drawings": [
+      { "label": "Вид сверху" },
+      { "label": "Вид сбоку" },
+      { "label": "Узел царги" }
+    ],
+    "notes": "Черновой пример модели — данные условные."
+  },
+  {
+    "id": "chair-vira",
+    "name": "Стул «Вира»",
+    "category": "chair",
+    "categoryLabel": "Стулья",
+    "status": "Черновик",
+    "linkedStandards": ["chair-seat-height", "chair-seat-width", "min-leg"],
+    "specs": [
+      { "label": "Ширина", "value": "450", "unit": "мм" },
+      { "label": "Глубина", "value": "520", "unit": "мм" },
+      { "label": "Высота", "value": "800", "unit": "мм" },
+      { "label": "Материал", "value": "Ясень, кожа" }
+    ],
+    "drawings": [
+      { "label": "Вид спереди" },
+      { "label": "Вид сбоку" }
+    ],
+    "notes": "Черновой пример модели — данные условные."
+  }
+]

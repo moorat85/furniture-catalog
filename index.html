@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Каталог — рабочая база моделей</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="app">
+
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <span class="brand-icon" aria-hidden="true">◆</span>
+    </div>
+
+    <nav class="sidebar-nav" aria-label="Навигация">
+      <a href="#standards" class="nav-item nav-pinned" data-nav="standards">
+        <span class="nav-icon" aria-hidden="true">▤</span>
+        <span>Стандарты</span>
+      </a>
+
+      <div class="nav-divider"></div>
+
+      <p class="nav-section-label">Модели</p>
+      <div class="nav-scroll" id="modelNavList"></div>
+    </nav>
+  </aside>
+
+  <main class="content" id="content"></main>
+
+</div>
+
+<script src="js/app.js"></script>
+</body>
+</html>
