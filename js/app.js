@@ -73,23 +73,21 @@
     return `
         <section class="standards-category" id="cat-${cat.id}">
           <h2>${cat.name}</h2>
-          <table class="params-table">
-            <thead>
-              <tr><th>Параметр</th><th>Значение</th><th>Комментарий</th></tr>
-            </thead>
-            <tbody>
-              ${cat.params
-                .map(
-                  (p) => `
-                <tr id="param-${p.key}">
-                  <td>${p.label}<div class="key">${p.key}</div></td>
-                  <td class="val">${p.value}${p.unit ? " " + p.unit : ""}</td>
-                  <td class="rule">${p.rule || "—"}</td>
-                </tr>`
-                )
-                .join("")}
-            </tbody>
-          </table>
+          <div class="params-table">
+            <div class="params-row params-head">
+              <div class="params-col">Параметр</div>
+              <div class="params-col">Значение</div>
+            </div>
+            ${cat.params
+              .map(
+                (p) => `
+              <div class="params-row" id="param-${p.key}">
+                <div class="params-col label">${p.label}<div class="key">${p.key}</div></div>
+                <div class="params-col val">${p.value}${p.unit ? " " + p.unit : ""}</div>
+              </div>`
+              )
+              .join("")}
+          </div>
         </section>`;
   }
 
@@ -102,8 +100,11 @@
               .map(
                 (s) => `
               <div class="swatch">
-                <span class="swatch-circle" style="background:${s.color};${s.bordered ? "" : "border-color:transparent;"}"></span>
-                <span class="swatch-label">${s.label}</span>
+                <span class="swatch-circle${s.bordered ? " bordered" : ""}" style="${s.image ? `background-image:url('${s.image}')` : `background-color:${s.color}`}"></span>
+                <span class="swatch-text">
+                  <span class="swatch-label">${s.label}</span>
+                  ${s.desc ? `<span class="swatch-desc">${s.desc}</span>` : ""}
+                </span>
               </div>`
               )
               .join("")}
@@ -185,11 +186,22 @@
     });
   }
 
+  function renderAccessories() {
+    els.content.innerHTML = `
+      <div class="page-header">
+        <h1 class="page-title">Фурнитура</h1>
+        <p class="page-sub">Раздел пока пустой — наполним, когда появятся данные.</p>
+      </div>
+    `;
+  }
+
   function route() {
     const hash = (location.hash || "#standards").slice(1);
     setActiveNav(hash);
     if (hash.startsWith("model/")) {
       renderModel(hash.slice("model/".length));
+    } else if (hash === "accessories") {
+      renderAccessories();
     } else {
       renderStandards();
     }
