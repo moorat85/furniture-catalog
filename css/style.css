@@ -15,8 +15,8 @@
   --blue: #2b5cff;
   --blue-soft: #eaf0ff;
   --sidebar-w: 264px;
-  --ff-sans: "IBM Plex Sans", -apple-system, sans-serif;
-  --ff-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --ff-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --ff-mono: "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
 * { box-sizing: border-box; }
