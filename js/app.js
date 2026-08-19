@@ -180,5 +180,5 @@
     route();
   }
 
-  window.initCatalogApp = init;
+  init();
 })();
