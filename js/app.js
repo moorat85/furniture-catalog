@@ -58,9 +58,10 @@
 
   function renderStandards() {
     els.content.innerHTML = `
-      <p class="page-eyebrow">Справочник</p>
-      <h1 class="page-title">Стандарты и правила</h1>
-      <p class="page-sub">Единые параметры и правила, на которые опираются все модели каталога. Пока редактируется прямо в <code>data/standards.json</code> — в будущем здесь будет редактируемая страница с автоматическим пересчётом связанных моделей.</p>
+      <div class="page-header">
+        <h1 class="page-title">Стандарты и правила</h1>
+        <p class="page-sub">Единые параметры и правила, на которые опираются все модели каталога. Пока редактируется прямо в <code>data/standards.json</code> — в будущем здесь будет редактируемая страница с автоматическим пересчётом связанных моделей.</p>
+      </div>
       ${standards.categories
         .map(
           (cat) => `
