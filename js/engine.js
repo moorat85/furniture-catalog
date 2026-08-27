@@ -20,7 +20,7 @@ window.Engine = (() => {
 
     const widths = cat.widths.map((n) => {
       const corpus = stepW * n + panel;
-      return { code: "X" + n, n, corpus, nominal: nominal(corpus) };
+      return { code: n + "W", n, corpus, nominal: nominal(corpus) };
     });
 
     const heights = cat.heights.map((h) => {

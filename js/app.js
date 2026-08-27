@@ -1,8 +1,8 @@
 /* Личный каталог — рабочая база моделей.
    Хэш-роутинг: #system | #materials | #model/<id>
    Данные: data/system.json    — параметрическая размерная система и модели,
-           data/standards.json — образцы материалов и правила-исключения,
-           data/models.json    — карточки моделей. */
+           data/standards.json — образцы материалов и общие правила,
+           data/models.json    — карточки моделей каталога. */
 
 (() => {
   const els = {
@@ -10,7 +10,7 @@
     modelNavList: document.getElementById("modelNavList"),
   };
 
-  const STORE_KEY = "catalog.system.v2";
+  const STORE_KEY = "catalog.system.v3";
 
   let system = { globals: [], limits: [], categories: [], models: [] };
   let standards = { categories: [] };
@@ -60,11 +60,10 @@
     const built = Engine.buildParts(comp, g, cfg);
     const nested = Engine.nest(built.parts, g);
     const railHeight = Engine.railFor(comp, g, cfg.height);
-    const checks = Engine.check(comp, l, { railHeight });
-    return { mdl, cat, g, l, v, comp: { ...comp, railHeight }, cfg, built, nested, checks };
+    return { mdl, cat, g, l, v, comp: { ...comp, railHeight }, cfg, built, nested };
   }
 
-  /* ---------- навигация ---------- */
+  /* ---------- боковая навигация ---------- */
 
   function buildModelNav() {
     const groups = [];
@@ -110,54 +109,53 @@
     els.content.innerHTML = `
       <div class="page-header">
         <h1 class="page-title">Система размеров</h1>
-        <p class="page-sub">Модули и глубины редактируются здесь — производные величины, чертёж и раскрой пересчитываются на ходу. Остальные параметры показаны справочно и правятся в <code>data/system.json</code>.</p>
+        <p class="page-sub">Модули и глубины редактируются здесь — чертёж и раскрой пересчитываются на ходу. Остальные параметры показаны ниже справочно и правятся в <code>data/system.json</code>.</p>
+      </div>
+
+      <div class="sys-tabs" id="sysTabs">
+        ${system.categories.map((c) => `
+          <button class="sys-tab${c.id === m.cat.id ? " is-active" : ""}" data-cat="${c.id}"><span>${c.plural || c.name}</span></button>`).join("")}
       </div>
 
       <div class="sys-layout">
         <aside class="sys-controls" id="sysControls"></aside>
         <div class="sys-output" id="sysOutput"></div>
       </div>
+
+      <div class="ro-section" id="roSection"></div>
     `;
 
     renderControls();
     renderOutput();
-  }
+    renderReadOnly();
 
-  function ctrl(v, scope, current) {
-    return `
-      <label class="ctrl" data-ctrl="${scope}:${v.id}">
-        <span class="ctrl-label">${v.label}</span>
-        <span class="ctrl-val">
-          <input type="number" value="${current[v.id]}" min="${v.min}" max="${v.max}" step="${v.step}"
-                 data-input="${scope}:${v.id}" aria-label="${v.label}">
-          ${v.unit ? `<span class="ctrl-unit">${v.unit}</span>` : ""}
-        </span>
-      </label>`;
-  }
-
-  function roList(items, values) {
-    return `
-      <dl class="ro-list">
-        ${items.map((v) => `
-          <div class="ro-row" title="${(v.rule || "").replace(/"/g, "&quot;")}">
-            <dt>${v.label}</dt>
-            <dd>${values[v.id]}${v.unit ? " " + v.unit : ""}</dd>
-          </div>`).join("")}
-      </dl>`;
+    document.getElementById("sysTabs").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-cat]");
+      if (!btn) return;
+      const first = system.models.find((x) => x.category === btn.dataset.cat);
+      if (!first) return;
+      state.modelId = first.id;
+      saveState();
+      renderSystem();
+    });
   }
 
   function renderControls() {
     const m = model();
     const editable = m.cat.vars.filter((v) => v.editable);
-    const fixed = m.cat.vars.filter((v) => !v.editable);
-
-    const groups = {};
-    system.globals.forEach((v) => { (groups[v.group || "Прочее"] = groups[v.group || "Прочее"] || []).push(v); });
 
     document.getElementById("sysControls").innerHTML = `
       <div class="ctrl-group">
         <p class="ctrl-group-title">Модули · ${m.cat.name}</p>
-        ${editable.map((v) => ctrl(v, "cat", m.v)).join("")}
+        ${editable.map((v) => `
+          <label class="ctrl">
+            <span class="ctrl-label">${v.label}</span>
+            <span class="ctrl-val">
+              <input type="number" value="${m.v[v.id]}" min="${v.min}" max="${v.max}" step="${v.step}"
+                     data-input="cat:${v.id}" aria-label="${v.label}">
+              ${v.unit ? `<span class="ctrl-unit">${v.unit}</span>` : ""}
+            </span>
+          </label>`).join("")}
       </div>
 
       <div class="ctrl-actions">
@@ -165,13 +163,6 @@
         <button class="btn btn-primary" id="sysExport">Скопировать JSON</button>
       </div>
       <p class="ctrl-hint" id="sysHint"></p>
-
-      <div class="ro-block">
-        <p class="ro-title">Справочно · правится в файле</p>
-        ${fixed.length ? `<p class="ro-sub">Категория</p>${roList(fixed, m.v)}` : ""}
-        ${Object.keys(groups).map((gname) => `<p class="ro-sub">${gname}</p>${roList(groups[gname], m.g)}`).join("")}
-        <p class="ro-sub">Пределы</p>${roList(system.limits, m.l)}
-      </div>
     `;
 
     document.getElementById("sysControls").addEventListener("input", onControlInput);
@@ -186,19 +177,17 @@
   function onControlInput(e) {
     const key = e.target.dataset.input;
     if (!key) return;
-    const [scope, id] = key.split(":");
+    const id = key.split(":")[1];
     const num = Number(e.target.value);
     if (!Number.isFinite(num)) return;
 
-    if (scope === "glob") state.overrides.globals[id] = num;
-    else if (scope === "lim") state.overrides.limits[id] = num;
-    else {
-      const cid = catOf(activeModel()).id;
-      state.overrides.cats[cid] = state.overrides.cats[cid] || {};
-      state.overrides.cats[cid][id] = num;
-    }
+    const cid = catOf(activeModel()).id;
+    state.overrides.cats[cid] = state.overrides.cats[cid] || {};
+    state.overrides.cats[cid][id] = num;
+
     saveState();
     renderOutput();
+    renderReadOnly();
   }
 
   function exportJson() {
@@ -226,99 +215,49 @@
     console.log(text);
   }
 
+  /* Модели текущей категории, сгруппированные по ширине: 1W, 2W, … */
+  function modelSwitch(m) {
+    const mine = system.models.filter((x) => x.category === m.cat.id);
+    const byWidth = {};
+    mine.forEach((x) => { (byWidth[x.config.width] = byWidth[x.config.width] || []).push(x); });
+
+    const rows = Object.keys(byWidth)
+      .map(Number)
+      .sort((a, b) => a - b)
+      .map((n) => `
+        <div class="mw-row">
+          <span class="mw-code">${n}W</span>
+          ${byWidth[n].map((x) => `
+            <button class="mw-item${x.id === m.mdl.id ? " is-active" : ""}" data-model="${x.id}">${x.name}</button>`).join("")}
+        </div>`);
+
+    return `<div class="model-switch" id="modelSwitch">${rows.join("")}</div>`;
+  }
+
   function renderOutput() {
     const m = model();
-    const errors = m.checks.filter((c) => !c.ok && c.level === "error");
-    const warns = m.checks.filter((c) => !c.ok && c.level === "warn");
-    const li = (c) => `<li>${c.label}: <b>${c.actual}</b> при ${c.dir === "max" ? "максимуме" : "минимуме"} ${c.limit} мм</li>`;
     const depth = m.comp.depths.find((d) => d.id === m.cfg.depth);
-    const exceptions = standards.categories.find((c) => c.id === "exceptions");
+    const w = m.comp.widths.find((x) => x.n === m.cfg.width);
 
     document.getElementById("sysOutput").innerHTML = `
-      <div class="model-switch" id="modelSwitch">
-        ${system.models.map((x) => `
-          <button class="chip${x.id === m.mdl.id ? " is-active" : ""}" data-model="${x.id}">
-            ${x.name}<span class="chip-note">${x.note || ""}</span>
-          </button>`).join("")}
-      </div>
-
-      ${errors.length ? `<div class="alert"><p class="alert-title">Нарушены пределы: ${errors.length}</p><ul>${errors.map(li).join("")}</ul></div>` : ""}
-      ${warns.length ? `<div class="alert alert-warn"><p class="alert-title">Требует решения: ${warns.length}</p><ul>${warns.map(li).join("")}</ul>
-          <p class="alert-note">Не ошибка конструктива: на такой высоте верхний модуль делается антресолью с полкой, а штанга уходит ниже.</p></div>` : ""}
+      ${modelSwitch(m)}
 
       <section class="section-block">
-        <p class="section-title">${m.mdl.name} · X${m.cfg.width} · ${m.cfg.height} · глубина ${depth.value}</p>
+        <p class="section-title">${m.mdl.name} · ${w ? w.code : ""} · ${m.cfg.height} · глубина ${depth.value}</p>
         <div class="drawing-stage">${Draw.elevation(m.comp, m.g, m.cfg, m.built)}</div>
-      </section>
-
-      <section class="section-block">
-        <p class="section-title">Производные величины</p>
-        <div class="derived-grid">
-          ${derivedCard("Чистая ширина отсека", m.comp.clearW, "модуль − панель")}
-          ${derivedCard("Пролёт полки", m.comp.bayClear, `${m.comp.bay} × модуль − панель`, chk(m.checks, "bayClear"))}
-          ${derivedCard("Ширина фасада", m.comp.facadeW, "модуль − зазор", chk(m.checks, "facadeWmax") && chk(m.checks, "facadeWmin"))}
-          ${derivedCard("Полушаг", m.comp.halfStep, "вертикальный модуль ÷ 2")}
-          ${derivedCard("Высота штанги", m.comp.railHeight, "верх корпуса − модуль", chk(m.checks, "railHeight"))}
-          ${derivedCard("Самая высокая", m.comp.maxTotal, "корпус + цоколь", chk(m.checks, "totalHeight"))}
-        </div>
-      </section>
-
-      <section class="section-block">
-        <p class="section-title">Ширины</p>
-        ${tbl(["Код", "Модулей", "Габарит", "Номинал"], m.comp.widths.map((w) => [w.code, w.n, w.corpus, w.nominal]))}
-      </section>
-
-      <section class="section-block">
-        <p class="section-title">Высоты</p>
-        ${tbl(["Код", "Формула", "Корпус", "С цоколем", "Назначение"], m.comp.heights.map((h) => [
-          h.code, `${m.comp.stepH} × ${h.n}${h.half ? " + " + m.comp.halfStep : ""} + ${m.g.panel}`, h.corpus, h.total, h.use || "",
-        ]))}
-      </section>
-
-      <section class="section-block">
-        <p class="section-title">Зоны хранения</p>
-        ${tbl(["Зона", "Модулей", "Чистая высота", "Норматив", "Назначение"], m.comp.zones.map((z) => [
-          z.label, z.steps, z.clear, z.norm || "—", z.use || "",
-        ]))}
-      </section>
-
-      <section class="section-block">
-        <p class="section-title">Глубины</p>
-        ${tbl(["Глубина", "Роль", "Чистая", "Плечики", "Полос из листа", "Отход"], m.comp.depths.map((d) => [
-          d.value, d.label, d.clear, d.hangerOk ? "проходит" : "не проходит", d.strips, d.waste,
-        ]))}
-      </section>
-
-      <section class="section-block">
-        <p class="section-title">Детали модели</p>
-        ${tbl(["Деталь", "Размер", "Кол-во", "Материал"], m.built.parts.map((p) => [p.name, `${p.w} × ${p.h}`, p.qty, p.material]))}
       </section>
 
       <section class="section-block">
         <p class="section-title">Раскрой ЛДСП</p>
         <div class="stat-row">
           ${stat("Листов", m.nested.count, "шт")}
-          ${stat("Использование", Math.round(m.nested.util * 100), "%", m.nested.util >= 0.85)}
+          ${stat("Использование", Math.round(m.nested.util * 100), "%")}
           ${stat("Деталей на раскрой", m.nested.totalPieces, "шт")}
           ${stat("Площадь деталей", (m.nested.partsArea / 1e6).toFixed(2), "м²")}
-          ${stat("ДВП отдельно", (m.nested.hdfArea / 1e6).toFixed(2), "м²")}
         </div>
         <div class="sheet-row">${Draw.sheets(m.nested, m.g, 4)}</div>
         <p class="notes-box">Оценка по алгоритму полос с учётом пропила и направления текстуры: детали кладутся длинной стороной вдоль листа, без поворота. Реальный раскрой обычно даёт на 2–4 % лучше.</p>
       </section>
-
-      ${exceptions ? `
-      <section class="section-block">
-        <p class="section-title">Где сетка ломается</p>
-        <div class="rules-grid">
-          ${(exceptions.rules || []).map((r, i) => `
-            <div class="rule-card">
-              <span class="rule-num">${String(i + 1).padStart(2, "0")}</span>
-              <p class="rule-title">${r.title}</p>
-              <p class="rule-text">${r.text}</p>
-            </div>`).join("")}
-        </div>
-      </section>` : ""}
     `;
 
     document.getElementById("modelSwitch").addEventListener("click", (e) => {
@@ -326,41 +265,52 @@
       if (!btn) return;
       state.modelId = btn.dataset.model;
       saveState();
-      renderSystem();
+      renderOutput();
     });
   }
 
-  function chk(checks, id) {
-    const c = checks.find((x) => x.id === id);
-    return c ? c.ok : true;
-  }
-
-  function derivedCard(label, value, formula, ok) {
+  function stat(label, value, unit) {
     return `
-      <div class="derived${ok === false ? " is-bad" : ""}">
-        <span class="derived-val">${value}</span>
-        <span class="derived-label">${label}</span>
-        <span class="derived-formula">${formula}</span>
-      </div>`;
-  }
-
-  function stat(label, value, unit, good) {
-    const cls = good === undefined ? "" : good ? " is-good" : " is-bad";
-    return `
-      <div class="stat${cls}">
+      <div class="stat">
         <span class="stat-val">${value}<span class="stat-unit">${unit}</span></span>
         <span class="stat-label">${label}</span>
       </div>`;
   }
 
-  function tbl(cols, rows) {
-    return `
-      <div class="data-table-wrap">
-        <table class="data-table">
-          <thead><tr>${cols.map((c) => `<th>${c}</th>`).join("")}</tr></thead>
-          <tbody>${rows.map((r) => `<tr>${r.map((c, i) => `<td${i === 0 ? ' class="first"' : ""}>${c}</td>`).join("")}</tr>`).join("")}</tbody>
-        </table>
-      </div>`;
+  /* ---------- справочные параметры под чертежом, во всю ширину ---------- */
+
+  function renderReadOnly() {
+    const m = model();
+    const fixed = m.cat.vars.filter((v) => !v.editable);
+
+    const groups = {};
+    system.globals.forEach((v) => { (groups[v.group || "Прочее"] = groups[v.group || "Прочее"] || []).push(v); });
+
+    const rows = [];
+    const pushGroup = (title, list, values) => {
+      if (!list.length) return;
+      rows.push(`<tr class="ro-head"><td colspan="3">${title}</td></tr>`);
+      list.forEach((v) => {
+        rows.push(`
+          <tr id="param-${v.id}">
+            <td class="ro-name">${v.label}</td>
+            <td class="ro-value">${values[v.id]}${v.unit ? " " + v.unit : ""}</td>
+            <td class="ro-rule">${v.rule || ""}</td>
+          </tr>`);
+      });
+    };
+
+    pushGroup(m.cat.name, fixed, m.v);
+    Object.keys(groups).forEach((gname) => pushGroup(gname, groups[gname], m.g));
+    pushGroup("Пределы", system.limits, m.l);
+
+    document.getElementById("roSection").innerHTML = `
+      <div class="ro-divider"></div>
+      <p class="ro-caption">Справочные параметры — правятся в <code>data/system.json</code></p>
+      <table class="ro-table">
+        <tbody>${rows.join("")}</tbody>
+      </table>
+    `;
   }
 
   /* ================= страница «Материалы и фурнитура» ================= */
@@ -398,20 +348,18 @@
       ${general ? `
       <section class="standards-category" id="cat-general">
         <h2>${general.name}</h2>
-        ${roListStatic(general.params)}
+        <table class="ro-table">
+          <tbody>
+            ${general.params.map((p) => `
+              <tr id="param-${p.key}">
+                <td class="ro-name">${p.label}</td>
+                <td class="ro-value">${p.value}${p.unit ? " " + p.unit : ""}</td>
+                <td class="ro-rule">${p.rule || ""}</td>
+              </tr>`).join("")}
+          </tbody>
+        </table>
       </section>` : ""}
     `;
-  }
-
-  function roListStatic(params) {
-    return `
-      <dl class="ro-list ro-wide">
-        ${params.map((p) => `
-          <div class="ro-row" id="param-${p.key}" title="${(p.rule || "").replace(/"/g, "&quot;")}">
-            <dt>${p.label}</dt>
-            <dd>${p.value}${p.unit ? " " + p.unit : ""}</dd>
-          </div>`).join("")}
-      </dl>`;
   }
 
   /* ================= страница модели ================= */
@@ -468,7 +416,17 @@
     `;
 
     els.content.querySelectorAll("[data-goto-standard]").forEach((btn) => {
-      btn.addEventListener("click", () => { location.hash = "system"; });
+      btn.addEventListener("click", () => {
+        location.hash = "system";
+        requestAnimationFrame(() => {
+          const row = document.getElementById(`param-${btn.dataset.gotoStandard}`);
+          if (row) {
+            row.scrollIntoView({ behavior: "smooth", block: "center" });
+            row.classList.add("is-flash");
+            setTimeout(() => row.classList.remove("is-flash"), 1400);
+          }
+        });
+      });
     });
   }
 

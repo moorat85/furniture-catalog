@@ -300,7 +300,117 @@
         "depth": "depthA",
         "shelvesPerBay": 4,
         "drawers": 4
-      }
+      },
+      "plural": "Шкафы"
+    },
+    {
+      "id": "shelving",
+      "name": "Стеллаж",
+      "active": false,
+      "vars": [
+        {
+          "id": "stepW",
+          "label": "Горизонтальный модуль",
+          "value": 380,
+          "min": 300,
+          "max": 520,
+          "step": 5,
+          "unit": "мм",
+          "editable": true
+        },
+        {
+          "id": "stepH",
+          "label": "Вертикальный модуль",
+          "value": 320,
+          "min": 200,
+          "max": 450,
+          "step": 5,
+          "unit": "мм",
+          "rule": "Мельче шкафного: под книги и папки.",
+          "editable": true
+        },
+        {
+          "id": "bay",
+          "label": "Стойка через N модулей",
+          "value": 1,
+          "min": 1,
+          "max": 3,
+          "step": 1,
+          "unit": "",
+          "rule": "У открытого стеллажа стойка на каждом модуле — она же вся конструктивная жёсткость."
+        },
+        {
+          "id": "plinth",
+          "label": "Цоколь",
+          "value": 60,
+          "min": 0,
+          "max": 160,
+          "step": 5,
+          "unit": "мм"
+        },
+        {
+          "id": "depthA",
+          "label": "Глубина основная",
+          "value": 350,
+          "min": 200,
+          "max": 500,
+          "step": 10,
+          "unit": "мм",
+          "editable": true
+        },
+        {
+          "id": "depthB",
+          "label": "Глубина неглубокая",
+          "value": 250,
+          "min": 150,
+          "max": 400,
+          "step": 10,
+          "unit": "мм",
+          "editable": true
+        }
+      ],
+      "widths": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "heights": [
+        {
+          "code": "S4",
+          "n": 4,
+          "half": false,
+          "use": "низкий"
+        },
+        {
+          "code": "S6",
+          "n": 6,
+          "half": false,
+          "use": "средний"
+        },
+        {
+          "code": "S7",
+          "n": 7,
+          "half": false,
+          "use": "высокий"
+        }
+      ],
+      "zones": [
+        {
+          "id": "shelf",
+          "label": "Полка",
+          "steps": 1,
+          "use": "книги, папки"
+        }
+      ],
+      "defaultConfig": {
+        "width": 3,
+        "height": "S6",
+        "depth": "depthA",
+        "shelvesPerBay": 5,
+        "drawers": 0
+      },
+      "plural": "Стеллажи"
     },
     {
       "id": "dresser",
@@ -413,123 +523,15 @@
         "depth": "depthA",
         "shelvesPerBay": 0,
         "drawers": 5
-      }
-    },
-    {
-      "id": "shelving",
-      "name": "Стеллаж",
-      "active": false,
-      "vars": [
-        {
-          "id": "stepW",
-          "label": "Горизонтальный модуль",
-          "value": 380,
-          "min": 300,
-          "max": 520,
-          "step": 5,
-          "unit": "мм",
-          "editable": true
-        },
-        {
-          "id": "stepH",
-          "label": "Вертикальный модуль",
-          "value": 320,
-          "min": 200,
-          "max": 450,
-          "step": 5,
-          "unit": "мм",
-          "rule": "Мельче шкафного: под книги и папки.",
-          "editable": true
-        },
-        {
-          "id": "bay",
-          "label": "Стойка через N модулей",
-          "value": 1,
-          "min": 1,
-          "max": 3,
-          "step": 1,
-          "unit": "",
-          "rule": "У открытого стеллажа стойка на каждом модуле — она же вся конструктивная жёсткость."
-        },
-        {
-          "id": "plinth",
-          "label": "Цоколь",
-          "value": 60,
-          "min": 0,
-          "max": 160,
-          "step": 5,
-          "unit": "мм"
-        },
-        {
-          "id": "depthA",
-          "label": "Глубина основная",
-          "value": 350,
-          "min": 200,
-          "max": 500,
-          "step": 10,
-          "unit": "мм",
-          "editable": true
-        },
-        {
-          "id": "depthB",
-          "label": "Глубина неглубокая",
-          "value": 250,
-          "min": 150,
-          "max": 400,
-          "step": 10,
-          "unit": "мм",
-          "editable": true
-        }
-      ],
-      "widths": [
-        1,
-        2,
-        3,
-        4
-      ],
-      "heights": [
-        {
-          "code": "S4",
-          "n": 4,
-          "half": false,
-          "use": "низкий"
-        },
-        {
-          "code": "S6",
-          "n": 6,
-          "half": false,
-          "use": "средний"
-        },
-        {
-          "code": "S7",
-          "n": 7,
-          "half": false,
-          "use": "высокий"
-        }
-      ],
-      "zones": [
-        {
-          "id": "shelf",
-          "label": "Полка",
-          "steps": 1,
-          "use": "книги, папки"
-        }
-      ],
-      "defaultConfig": {
-        "width": 3,
-        "height": "S6",
-        "depth": "depthA",
-        "shelvesPerBay": 5,
-        "drawers": 0
-      }
+      },
+      "plural": "Комоды"
     }
   ],
   "models": [
     {
-      "id": "w2r",
-      "name": "2Р",
+      "id": "w-perviy",
+      "name": "Первый",
       "category": "wardrobe",
-      "note": "два распашных фасада",
       "config": {
         "width": 2,
         "height": "H5½",
@@ -539,62 +541,21 @@
       }
     },
     {
-      "id": "w3r",
-      "name": "3Р",
+      "id": "w-penal",
+      "name": "Пенал",
       "category": "wardrobe",
-      "note": "три фасада",
       "config": {
-        "width": 3,
+        "width": 1,
         "height": "H5½",
-        "depth": "depthA",
-        "shelvesPerBay": 4,
+        "depth": "depthB",
+        "shelvesPerBay": 5,
         "drawers": 0
       }
     },
     {
-      "id": "w4r",
-      "name": "4Р",
+      "id": "w-perviy-slim",
+      "name": "Первый неглубокий",
       "category": "wardrobe",
-      "note": "две секции",
-      "config": {
-        "width": 4,
-        "height": "H5½",
-        "depth": "depthA",
-        "shelvesPerBay": 4,
-        "drawers": 4
-      }
-    },
-    {
-      "id": "w5r",
-      "name": "5Р",
-      "category": "wardrobe",
-      "note": "полторы секции",
-      "config": {
-        "width": 5,
-        "height": "H5½",
-        "depth": "depthA",
-        "shelvesPerBay": 4,
-        "drawers": 4
-      }
-    },
-    {
-      "id": "w6r",
-      "name": "6Р",
-      "category": "wardrobe",
-      "note": "три секции",
-      "config": {
-        "width": 6,
-        "height": "H6",
-        "depth": "depthA",
-        "shelvesPerBay": 5,
-        "drawers": 4
-      }
-    },
-    {
-      "id": "w2r-slim",
-      "name": "2Р неглубокий",
-      "category": "wardrobe",
-      "note": "глубина 450",
       "config": {
         "width": 2,
         "height": "H5",
@@ -604,10 +565,33 @@
       }
     },
     {
-      "id": "w4r-low",
-      "name": "4Р низкий",
+      "id": "w-vtoroy",
+      "name": "Второй",
       "category": "wardrobe",
-      "note": "без антресоли",
+      "config": {
+        "width": 3,
+        "height": "H5½",
+        "depth": "depthA",
+        "shelvesPerBay": 4,
+        "drawers": 0
+      }
+    },
+    {
+      "id": "w-tretiy",
+      "name": "Третий",
+      "category": "wardrobe",
+      "config": {
+        "width": 4,
+        "height": "H5½",
+        "depth": "depthA",
+        "shelvesPerBay": 4,
+        "drawers": 4
+      }
+    },
+    {
+      "id": "w-tretiy-low",
+      "name": "Третий низкий",
+      "category": "wardrobe",
       "config": {
         "width": 4,
         "height": "H4",
@@ -617,12 +601,71 @@
       }
     },
     {
-      "id": "d3",
-      "name": "Комод 3",
-      "category": "dresser",
-      "note": "пять ящиков",
+      "id": "w-chetvertyy",
+      "name": "Четвёртый",
+      "category": "wardrobe",
+      "config": {
+        "width": 5,
+        "height": "H5½",
+        "depth": "depthA",
+        "shelvesPerBay": 4,
+        "drawers": 4
+      }
+    },
+    {
+      "id": "w-pyatyy",
+      "name": "Пятый",
+      "category": "wardrobe",
+      "config": {
+        "width": 6,
+        "height": "H6",
+        "depth": "depthA",
+        "shelvesPerBay": 5,
+        "drawers": 4
+      }
+    },
+    {
+      "id": "s-kallax-1",
+      "name": "Каллакс узкий",
+      "category": "shelving",
+      "config": {
+        "width": 1,
+        "height": "S6",
+        "depth": "depthA",
+        "shelvesPerBay": 5,
+        "drawers": 0
+      }
+    },
+    {
+      "id": "s-kallax",
+      "name": "Каллакс",
+      "category": "shelving",
       "config": {
         "width": 3,
+        "height": "S6",
+        "depth": "depthA",
+        "shelvesPerBay": 5,
+        "drawers": 0
+      }
+    },
+    {
+      "id": "s-kallax-4",
+      "name": "Каллакс широкий",
+      "category": "shelving",
+      "config": {
+        "width": 4,
+        "height": "S7",
+        "depth": "depthA",
+        "shelvesPerBay": 6,
+        "drawers": 0
+      }
+    },
+    {
+      "id": "d-veno-2",
+      "name": "Вено",
+      "category": "dresser",
+      "config": {
+        "width": 2,
         "height": "D5",
         "depth": "depthA",
         "shelvesPerBay": 0,
@@ -630,16 +673,15 @@
       }
     },
     {
-      "id": "s3",
-      "name": "Стеллаж 3",
-      "category": "shelving",
-      "note": "открытый",
+      "id": "d-veno-3",
+      "name": "Вено широкий",
+      "category": "dresser",
       "config": {
         "width": 3,
-        "height": "S6",
+        "height": "D5",
         "depth": "depthA",
-        "shelvesPerBay": 5,
-        "drawers": 0
+        "shelvesPerBay": 0,
+        "drawers": 5
       }
     }
   ]
