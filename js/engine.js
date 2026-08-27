@@ -65,40 +65,6 @@ window.Engine = (() => {
     return round(h.total - globals.panel - comp.stepH);
   }
 
-  /* ---------- проверка пределов ----------
-     level "error" — конструктив не работает; "warn" — работает, но требует решения. */
-
-  function check(comp, limits, extra) {
-    const out = [];
-    const add = (id, ok, label, actual, limit, dir, level) =>
-      out.push({ id, ok, label, actual, limit, dir, level: level || "error" });
-
-    add("bayClear", comp.bayClear <= limits.maxShelfSpan,
-      "Пролёт полки", comp.bayClear, limits.maxShelfSpan, "max");
-
-    add("facadeWmin", comp.facadeW >= limits.minFacadeWidth,
-      "Ширина фасада (мин.)", comp.facadeW, limits.minFacadeWidth, "min");
-
-    add("facadeWmax", comp.facadeW <= limits.maxFacadeWidth,
-      "Ширина фасада (макс.)", comp.facadeW, limits.maxFacadeWidth, "max");
-
-    add("totalHeight", comp.maxTotal <= limits.maxTotalHeight,
-      "Высота самого высокого изделия", comp.maxTotal, limits.maxTotalHeight, "max");
-
-    const rail = (extra && extra.railHeight) || 0;
-    add("railHeight", rail <= limits.maxRailHeight,
-      "Высота штанги от пола", rail, limits.maxRailHeight, "max", "warn");
-
-    comp.depths.forEach((d) => {
-      if (d.id === "depthA") {
-        add("depthClear", d.hangerOk,
-          "Чистая глубина под плечики", d.clear, limits.minHangDepth, "min");
-      }
-    });
-
-    return out;
-  }
-
   /* ---------- разбивка ширины на секции ---------- */
 
   function bays(n, bay, stepW, panel) {
@@ -221,5 +187,5 @@ window.Engine = (() => {
     };
   }
 
-  return { compute, railFor, check, buildParts, nest, bays, nominal };
+  return { compute, railFor, buildParts, nest, bays, nominal };
 })();
