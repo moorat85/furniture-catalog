@@ -1,35 +1,33 @@
 /* Живой чертёж: фронтальный вид изделия с размерными линиями и превью раскроя.
-   Перерисовывается целиком при любой правке переменной — состояния не держит. */
+   Панели ЛДСП рисуются двумя пунктирными линиями по граням — так к каждой грани
+   можно потом привязать размер. Перерисовывается целиком, состояния не держит. */
 
 window.Draw = (() => {
-  const NS = "http://www.w3.org/2000/svg";
   const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
 
-  /* ---------- вспомогательные примитивы ---------- */
+  /* ---------- размерные линии ---------- */
 
   function dimH(x1, x2, y, label, opts) {
     const o = opts || {};
-    const cls = o.accent ? "dim accent" : "dim";
     const mid = (x1 + x2) / 2;
     return `
-      <g class="${cls}">
+      <g class="dim${o.accent ? " accent" : ""}">
         <line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}"/>
-        <line class="tick" x1="${x1}" y1="${y - 4}" x2="${x1}" y2="${y + 4}"/>
-        <line class="tick" x1="${x2}" y1="${y - 4}" x2="${x2}" y2="${y + 4}"/>
-        <text x="${mid}" y="${y - 6}" text-anchor="middle">${esc(label)}</text>
+        <line class="tick" x1="${x1}" y1="${y - 3.5}" x2="${x1}" y2="${y + 3.5}"/>
+        <line class="tick" x1="${x2}" y1="${y - 3.5}" x2="${x2}" y2="${y + 3.5}"/>
+        <text x="${mid}" y="${y - 5}" text-anchor="middle">${esc(label)}</text>
       </g>`;
   }
 
   function dimV(y1, y2, x, label, opts) {
     const o = opts || {};
-    const cls = o.accent ? "dim accent" : "dim";
     const mid = (y1 + y2) / 2;
     return `
-      <g class="${cls}">
+      <g class="dim${o.accent ? " accent" : ""}">
         <line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}"/>
-        <line class="tick" x1="${x - 4}" y1="${y1}" x2="${x + 4}" y2="${y1}"/>
-        <line class="tick" x1="${x - 4}" y1="${y2}" x2="${x + 4}" y2="${y2}"/>
-        <text x="${x + 6}" y="${mid}" dominant-baseline="middle">${esc(label)}</text>
+        <line class="tick" x1="${x - 3.5}" y1="${y1}" x2="${x + 3.5}" y2="${y1}"/>
+        <line class="tick" x1="${x - 3.5}" y1="${y2}" x2="${x + 3.5}" y2="${y2}"/>
+        <text x="${x + 5}" y="${mid}" dominant-baseline="middle">${esc(label)}</text>
       </g>`;
   }
 
@@ -44,9 +42,8 @@ window.Draw = (() => {
     const totalW = w.corpus;
     const totalH = h.corpus + plinth;
 
-    /* поля под размерные линии */
-    const padL = 96, padR = 150, padT = 54, padB = 62;
-    const maxW = 760, maxH = 470;
+    const padL = 74, padR = 128, padT = 42, padB = 48;
+    const maxW = 560, maxH = 340;
     const s = Math.min(maxW / totalW, maxH / totalH);
 
     const X = (mm) => padL + mm * s;
@@ -55,81 +52,95 @@ window.Draw = (() => {
     const vbW = padL + totalW * s + padR;
     const vbH = padT + totalH * s + padB;
 
+    /* Панель ЛДСП = две пунктирные линии по её граням. */
+    const hPanel = (x0, x1, y0, y1) => `
+      <line class="edge" x1="${X(x0)}" y1="${Y(y0)}" x2="${X(x1)}" y2="${Y(y0)}"/>
+      <line class="edge" x1="${X(x0)}" y1="${Y(y1)}" x2="${X(x1)}" y2="${Y(y1)}"/>`;
+
+    const vPanel = (y0, y1, x0, x1) => `
+      <line class="edge" x1="${X(x0)}" y1="${Y(y0)}" x2="${X(x0)}" y2="${Y(y1)}"/>
+      <line class="edge" x1="${X(x1)}" y1="${Y(y0)}" x2="${X(x1)}" y2="${Y(y1)}"/>`;
+
     let g = "";
 
+    /* поле корпуса — лёгкая заливка, чтобы пунктир читался */
+    g += `<rect class="field" x="${X(0)}" y="${Y(totalH)}" width="${totalW * s}" height="${h.corpus * s}"/>`;
+
     /* цоколь */
-    g += `<rect class="plinth" x="${X(0)}" y="${Y(plinth)}" width="${totalW * s}" height="${plinth * s}"/>`;
+    g += hPanel(0, totalW, 0, plinth);
+    g += vPanel(0, plinth, 0, totalW);
 
-    /* корпус: наружный контур */
-    g += `<rect class="carcass" x="${X(0)}" y="${Y(totalH)}" width="${totalW * s}" height="${h.corpus * s}"/>`;
+    /* боковины */
+    g += vPanel(plinth, totalH, 0, panel);
+    g += vPanel(plinth, totalH, totalW - panel, totalW);
 
-    /* внутреннее поле */
-    g += `<rect class="inner" x="${X(panel)}" y="${Y(totalH - panel)}" width="${(totalW - 2 * panel) * s}" height="${(h.corpus - 2 * panel) * s}"/>`;
+    /* горизонты верх и низ */
+    g += hPanel(0, totalW, plinth, plinth + panel);
+    g += hPanel(0, totalW, totalH - panel, totalH);
 
-    /* вертикальные стойки по секциям */
+    /* стойки по секциям */
     let cursor = panel;
     const secX = [];
     secs.forEach((sec, i) => {
       secX.push({ x0: cursor, x1: cursor + sec.clear, sec });
       cursor += sec.clear;
       if (i < secs.length - 1) {
-        g += `<rect class="post" x="${X(cursor)}" y="${Y(totalH - panel)}" width="${panel * s}" height="${(h.corpus - 2 * panel) * s}"/>`;
+        g += vPanel(plinth + panel, totalH - panel, cursor, cursor + panel);
         cursor += panel;
       }
     });
 
-    /* наполнение: первая секция — штанга, остальные — полки; ящики снизу второй */
+    /* наполнение секций */
+    const hasHang = comp.zones.some((z) => z.id.indexOf("hang") === 0);
     secX.forEach((sx, i) => {
-      const bw = (sx.x1 - sx.x0) * s;
-      const bx = X(sx.x0);
+      const isLast = i === secX.length - 1;
 
-      if (i === 0 && comp.zones.some((z) => z.id.startsWith("hang"))) {
-        const railY = totalH - panel - comp.stepH;
-        g += `<line class="rail" x1="${bx + 6}" y1="${Y(railY)}" x2="${bx + bw - 6}" y2="${Y(railY)}"/>`;
-        g += `<rect class="shelf" x="${bx}" y="${Y(totalH - panel - comp.stepH + panel)}" width="${bw}" height="${panel * s}"/>`;
+      if (i === 0 && hasHang) {
+        const shelfY = totalH - panel - comp.stepH;
+        g += hPanel(sx.x0, sx.x1, shelfY, shelfY + panel);
+        g += `<line class="rail" x1="${X(sx.x0) + 5}" y1="${Y(shelfY - 34)}" x2="${X(sx.x1) - 5}" y2="${Y(shelfY - 34)}"/>`;
         for (let k = 0; k < 5; k += 1) {
-          const hx = bx + bw * (0.16 + k * 0.17);
-          g += `<path class="hanger" d="M ${hx} ${Y(railY)} l -13 ${comp.stepH * 0.9 * s} l 26 0 Z"/>`;
+          const hx = X(sx.x0) + (X(sx.x1) - X(sx.x0)) * (0.18 + k * 0.16);
+          const hw = Math.min(11, (X(sx.x1) - X(sx.x0)) * 0.07);
+          g += `<path class="hanger" d="M ${hx} ${Y(shelfY - 34)} l ${-hw} ${comp.stepH * 0.62 * s} l ${hw * 2} 0 Z"/>`;
         }
-      } else {
-        const nShelves = config.shelvesPerBay || 0;
-        for (let k = 1; k <= nShelves; k += 1) {
+      } else if (!(isLast && config.drawers > 0)) {
+        for (let k = 1; k <= (config.shelvesPerBay || 0); k += 1) {
           const sy = plinth + panel + k * comp.stepH;
-          if (sy < totalH - panel) {
-            g += `<rect class="shelf" x="${bx}" y="${Y(sy)}" width="${bw}" height="${panel * s}"/>`;
-          }
+          if (sy + panel < totalH - panel) g += hPanel(sx.x0, sx.x1, sy, sy + panel);
         }
       }
 
-      /* ящики в последней секции */
-      if (i === secX.length - 1 && config.drawers > 0) {
+      if (isLast && config.drawers > 0) {
         for (let k = 0; k < config.drawers; k += 1) {
           const dy = plinth + panel + k * comp.halfStep;
-          g += `<rect class="drawer" x="${bx + 2}" y="${Y(dy + comp.halfStep)}" width="${bw - 4}" height="${(comp.halfStep - 2) * s}"/>`;
-          g += `<line class="pull" x1="${bx + bw * 0.36}" y1="${Y(dy + comp.halfStep * 0.5)}" x2="${bx + bw * 0.64}" y2="${Y(dy + comp.halfStep * 0.5)}"/>`;
+          if (dy + comp.halfStep > totalH - panel) break;
+          g += `<rect class="drawer" x="${X(sx.x0) + 1}" y="${Y(dy + comp.halfStep)}" width="${(sx.x1 - sx.x0) * s - 2}" height="${(comp.halfStep - 2) * s}"/>`;
+          const cx = (X(sx.x0) + X(sx.x1)) / 2;
+          g += `<line class="pull" x1="${cx - 14}" y1="${Y(dy + comp.halfStep * 0.5)}" x2="${cx + 14}" y2="${Y(dy + comp.halfStep * 0.5)}"/>`;
         }
       }
     });
 
-    /* швы фасадов — штриховыми линиями по шагу */
+    /* швы фасадов */
     for (let k = 1; k < config.width; k += 1) {
       const fx = panel + k * comp.stepW - panel / 2;
       g += `<line class="facade-seam" x1="${X(fx)}" y1="${Y(totalH)}" x2="${X(fx)}" y2="${Y(plinth)}"/>`;
     }
 
-    /* размерные линии */
+    /* размеры */
     let dims = "";
-    dims += dimH(X(0), X(totalW), padT - 26, `${totalW}`, { accent: true });
+    dims += dimH(X(0), X(totalW), padT - 20, `${totalW}`, { accent: true });
 
     let c2 = panel;
     secs.forEach((sec, i) => {
-      dims += dimH(X(c2), X(c2 + sec.clear), Y(0) + 30, `${sec.clear}`);
+      dims += dimH(X(c2), X(c2 + sec.clear), Y(0) + 26, `${sec.clear}`);
       c2 += sec.clear + (i < secs.length - 1 ? panel : 0);
     });
 
-    dims += dimV(Y(totalH), Y(0), X(totalW) + 46, `${totalH}`, { accent: true });
-    dims += dimV(Y(plinth), Y(0), X(totalW) + 12, `${plinth}`);
-    dims += dimV(Y(plinth + panel + comp.stepH), Y(plinth + panel), X(totalW) + 12, `${comp.stepH - panel}`);
+    dims += dimV(Y(totalH), Y(0), X(totalW) + 40, `${totalH}`, { accent: true });
+    dims += dimV(Y(plinth), Y(0), X(totalW) + 10, `${plinth}`);
+    dims += dimV(Y(plinth + panel + comp.stepH), Y(plinth + panel), X(totalW) + 10, `${comp.stepH - panel}`);
 
     return `
       <svg class="elevation" viewBox="0 0 ${vbW} ${vbH}" preserveAspectRatio="xMidYMid meet" role="img"
@@ -147,8 +158,7 @@ window.Draw = (() => {
     const show = nested.sheets.slice(0, limit || 4);
     if (!show.length) return "";
 
-    const vw = 420;
-    const s = vw / L;
+    const s = 420 / L;
 
     return show
       .map((sh, idx) => {

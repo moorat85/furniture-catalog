@@ -226,74 +226,6 @@ a { color: inherit; text-decoration: none; }
   margin: 0 0 20px;
 }
 
-.params-table {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  max-width: 848px;
-}
-
-.params-row {
-  display: flex;
-  gap: 20px;
-  padding: 12px 0;
-  border-top: 1px solid var(--stroke);
-}
-
-.params-head {
-  display: flex;
-  gap: 20px;
-  padding-bottom: 8px;
-  border-top: none;
-}
-
-.params-col {
-  flex: 1 0 0;
-  min-width: 0;
-}
-
-.params-head .params-col {
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 14px;
-  text-transform: uppercase;
-  letter-spacing: 0.88px;
-  color: var(--text-muted);
-}
-
-.params-table .val {
-  font-size: 16px;
-  font-weight: 400;
-  line-height: 24px;
-  color: var(--black);
-}
-
-.params-table .label {
-  font-size: 16px;
-  line-height: 24px;
-  color: var(--black);
-}
-
-.params-table .key {
-  color: var(--text-muted);
-  font-size: 11px;
-  line-height: 14px;
-  font-weight: 400;
-}
-
-.params-table .rule {
-  font-size: 12.5px;
-  line-height: 18px;
-  color: var(--text-muted);
-}
-
-.params-col-rule { flex: 1.6 0 0; }
-
-/* отбивка таблицы параметров, когда над ней стоит блок сетки/таблицы/правил */
-.data-table-wrap + .params-table,
-.rules-grid + .params-table,
-.swatch-row + .params-table { margin-top: 32px; }
-
 .category-intro {
   font-size: 16px;
   line-height: 24px;
@@ -301,18 +233,106 @@ a { color: inherit; text-decoration: none; }
   max-width: 720px;
 }
 
-/* ---------- модульная сетка ---------- */
-.formula {
-  display: inline-block;
-  font-size: 15px;
-  font-weight: 500;
-  color: var(--blue);
-  background: var(--blue-soft);
+
+/* ---------- переключатель моделей ---------- */
+.model-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: -16px;
+}
+
+.chip {
+  appearance: none;
+  font-family: var(--ff-sans);
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
   padding: 8px 14px;
   border-radius: 10px;
-  margin: 0 0 24px;
-  font-variant-numeric: tabular-nums;
+  border: 1px solid var(--stroke);
+  background: var(--white);
+  color: var(--black);
+  font-size: 14px;
+  line-height: 18px;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
 }
+
+.chip:hover { background: var(--bg); }
+
+.chip.is-active {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: var(--white);
+}
+
+.chip-note {
+  font-size: 10.5px;
+  line-height: 13px;
+  color: var(--text-muted);
+}
+
+.chip.is-active .chip-note { color: rgba(255, 255, 255, 0.72); }
+
+/* ---------- справочные параметры (только чтение) ---------- */
+.ro-block {
+  border-top: 1px solid var(--stroke);
+  padding-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ro-title {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.88px;
+  color: var(--text-muted);
+  margin: 0 0 8px;
+}
+
+.ro-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 12px 0 2px;
+}
+
+.ro-list { margin: 0; display: flex; flex-direction: column; }
+
+.ro-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+.ro-row dt {
+  font-size: 12px;
+  line-height: 17px;
+  color: var(--text-muted);
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ro-row dd {
+  margin: 0;
+  font-size: 12px;
+  line-height: 17px;
+  color: var(--black);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.ro-wide { max-width: 520px; }
+.ro-wide .ro-row { padding: 7px 0; border-top: 1px solid var(--stroke); }
+.ro-wide dt, .ro-wide dd { font-size: 14px; line-height: 20px; }
+.ro-wide dt { white-space: normal; }
 
 /* ---------- таблицы данных ---------- */
 .data-table-wrap {
@@ -390,33 +410,6 @@ a { color: inherit; text-decoration: none; }
 .link { color: var(--blue); }
 .link:hover { text-decoration: underline; }
 
-.sys-tabs {
-  display: flex;
-  gap: 4px;
-  border-bottom: 1px solid var(--stroke);
-  margin-top: -20px;
-}
-
-.sys-tab {
-  appearance: none;
-  border: none;
-  background: none;
-  font-family: var(--ff-sans);
-  font-size: 15px;
-  color: var(--text-muted);
-  padding: 10px 14px;
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-}
-
-.sys-tab:hover { color: var(--black); }
-
-.sys-tab.is-active {
-  color: var(--blue);
-  border-bottom-color: var(--blue);
-}
-
 .sys-layout {
   display: grid;
   grid-template-columns: 296px minmax(0, 1fr);
@@ -452,11 +445,8 @@ a { color: inherit; text-decoration: none; }
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding-left: 10px;
-  border-left: 2px solid transparent;
 }
 
-.ctrl.is-changed { border-left-color: var(--blue); }
 
 .ctrl-head {
   display: flex;
@@ -490,33 +480,6 @@ a { color: inherit; text-decoration: none; }
 }
 
 .ctrl-unit { font-size: 11px; color: var(--text-muted); }
-
-.ctrl input[type="range"] {
-  appearance: none;
-  width: 100%;
-  height: 3px;
-  border-radius: 999px;
-  background: var(--stroke);
-  cursor: pointer;
-}
-
-.ctrl input[type="range"]::-webkit-slider-thumb {
-  appearance: none;
-  width: 13px;
-  height: 13px;
-  border-radius: 50%;
-  background: var(--blue);
-  border: 2px solid var(--white);
-  box-shadow: 0 0 0 1px var(--stroke);
-}
-
-.ctrl input[type="range"]::-moz-range-thumb {
-  width: 13px;
-  height: 13px;
-  border: 2px solid var(--white);
-  border-radius: 50%;
-  background: var(--blue);
-}
 
 .ctrl-rule {
   font-size: 11.5px;
@@ -572,33 +535,35 @@ a { color: inherit; text-decoration: none; }
   border: 1px solid var(--stroke);
   border-radius: 12px;
   background: var(--white);
-  padding: 8px;
+  padding: 6px;
+  max-width: 720px;
   overflow: hidden;
 }
 
-.elevation { width: 100%; height: auto; display: block; }
+.elevation { width: 100%; height: 420px; display: block; }
 
-.elevation .carcass { fill: none; stroke: var(--black); stroke-width: 1.4; }
-.elevation .inner { fill: var(--bg); stroke: none; }
-.elevation .plinth { fill: #E4E7EC; stroke: var(--black); stroke-width: 1.1; }
-.elevation .post { fill: var(--black); opacity: 0.82; }
-.elevation .shelf { fill: var(--black); opacity: 0.72; }
-.elevation .rail { stroke: var(--black); stroke-width: 2.2; stroke-linecap: round; }
-.elevation .hanger { fill: none; stroke: var(--text-muted); stroke-width: 1; }
-.elevation .drawer { fill: var(--white); stroke: var(--black); stroke-width: 1; }
-.elevation .pull { stroke: var(--black); stroke-width: 1.6; stroke-linecap: round; }
-.elevation .facade-seam { stroke: var(--text-muted); stroke-width: 1; stroke-dasharray: 4 4; }
+.elevation .field { fill: var(--bg); }
+.elevation .edge {
+  stroke: var(--black);
+  stroke-width: 0.9;
+  stroke-dasharray: 3.5 2.5;
+}
+.elevation .rail { stroke: var(--black); stroke-width: 1.8; stroke-linecap: round; }
+.elevation .hanger { fill: none; stroke: var(--text-muted); stroke-width: 0.9; }
+.elevation .drawer { fill: none; stroke: var(--black); stroke-width: 0.9; stroke-dasharray: 3.5 2.5; }
+.elevation .pull { stroke: var(--black); stroke-width: 1.5; stroke-linecap: round; }
+.elevation .facade-seam { stroke: var(--text-muted); stroke-width: 0.8; stroke-dasharray: 10 7; }
 
 .elevation .dim line { stroke: var(--text-muted); stroke-width: 0.8; }
 .elevation .dim .tick { stroke-width: 1.1; }
 .elevation .dim text {
   fill: var(--text-muted);
-  font-size: 11px;
+  font-size: 10px;
   font-family: var(--ff-sans);
   font-variant-numeric: tabular-nums;
 }
 .elevation .dim.accent line { stroke: var(--blue); }
-.elevation .dim.accent text { fill: var(--blue); font-weight: 600; font-size: 12px; }
+.elevation .dim.accent text { fill: var(--blue); font-weight: 600; font-size: 11px; }
 
 .config-bar {
   display: flex;

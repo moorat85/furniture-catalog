@@ -1,8 +1,8 @@
 /* Личный каталог — рабочая база моделей.
-   Хэш-роутинг: #system | #standards | #accessories | #model/<id>
-   Данные: data/system.json    — параметрическая размерная система (ведущие переменные),
-           data/standards.json — статические правила и образцы,
-           data/models.json    — модели, ссылающиеся на стандарты. */
+   Хэш-роутинг: #system | #materials | #model/<id>
+   Данные: data/system.json    — параметрическая размерная система и модели,
+           data/standards.json — образцы материалов и правила-исключения,
+           data/models.json    — карточки моделей. */
 
 (() => {
   const els = {
@@ -10,15 +10,14 @@
     modelNavList: document.getElementById("modelNavList"),
   };
 
-  const STORE_KEY = "catalog.system.v1";
+  const STORE_KEY = "catalog.system.v2";
 
-  let system = { globals: [], limits: [], categories: [] };
+  let system = { globals: [], limits: [], categories: [], models: [] };
   let standards = { categories: [] };
   let models = [];
   let standardIndex = {};
 
-  /* Состояние правок: только отклонения от значений в system.json. */
-  let state = { categoryId: null, overrides: { globals: {}, limits: {}, cats: {} }, configs: {} };
+  let state = { modelId: null, overrides: { globals: {}, limits: {}, cats: {} } };
 
   /* ---------- состояние ---------- */
 
@@ -26,18 +25,22 @@
     try {
       const raw = localStorage.getItem(STORE_KEY);
       if (raw) {
-        const parsed = JSON.parse(raw);
-        state = { ...state, ...parsed, overrides: { globals: {}, limits: {}, cats: {}, ...(parsed.overrides || {}) } };
+        const p = JSON.parse(raw);
+        state = { ...state, ...p, overrides: { globals: {}, limits: {}, cats: {}, ...(p.overrides || {}) } };
       }
-    } catch (e) { /* приватный режим или заблокированное хранилище — работаем без сохранения */ }
+    } catch (e) { /* хранилище недоступно — работаем без сохранения */ }
   }
 
   function saveState() {
     try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) { /* не критично */ }
   }
 
-  function activeCat() {
-    return system.categories.find((c) => c.id === state.categoryId) || system.categories[0];
+  function activeModel() {
+    return system.models.find((m) => m.id === state.modelId) || system.models[0];
+  }
+
+  function catOf(mdl) {
+    return system.categories.find((c) => c.id === mdl.category) || system.categories[0];
   }
 
   function valuesOf(list, over) {
@@ -46,50 +49,38 @@
     return out;
   }
 
-  function globalsNow() { return valuesOf(system.globals, state.overrides.globals); }
-  function limitsNow() { return valuesOf(system.limits, state.overrides.limits); }
-  function varsNow(cat) { return valuesOf(cat.vars, state.overrides.cats[cat.id]); }
-
-  function configNow(cat) {
-    return state.configs[cat.id] || { ...cat.defaultConfig };
-  }
-
   function model() {
-    const cat = activeCat();
-    const g = globalsNow();
-    const l = limitsNow();
-    const v = varsNow(cat);
+    const mdl = activeModel();
+    const cat = catOf(mdl);
+    const g = valuesOf(system.globals, state.overrides.globals);
+    const l = valuesOf(system.limits, state.overrides.limits);
+    const v = valuesOf(cat.vars, state.overrides.cats[cat.id]);
     const comp = Engine.compute(cat, v, g, l);
-    const cfg = configNow(cat);
+    const cfg = mdl.config;
     const built = Engine.buildParts(comp, g, cfg);
     const nested = Engine.nest(built.parts, g);
     const railHeight = Engine.railFor(comp, g, cfg.height);
     const checks = Engine.check(comp, l, { railHeight });
-    return { cat, g, l, v, comp: { ...comp, railHeight }, cfg, built, nested, checks };
+    return { mdl, cat, g, l, v, comp: { ...comp, railHeight }, cfg, built, nested, checks };
   }
 
   /* ---------- навигация ---------- */
 
   function buildModelNav() {
     const groups = [];
-    const groupIndex = {};
+    const idx = {};
     models.forEach((m) => {
       const key = m.categoryLabel || "Прочее";
-      if (!(key in groupIndex)) {
-        groupIndex[key] = groups.length;
-        groups.push({ label: key, items: [] });
-      }
-      groups[groupIndex[key]].items.push(m);
+      if (!(key in idx)) { idx[key] = groups.length; groups.push({ label: key, items: [] }); }
+      groups[idx[key]].items.push(m);
     });
 
     els.modelNavList.innerHTML = groups
-      .map(
-        (g) => `
+      .map((g) => `
         <div class="nav-group">
           <p class="nav-section-label">${g.label}</p>
           ${g.items.map((m) => `<a href="#model/${m.id}" class="nav-model-item" data-nav="model/${m.id}">${m.name}</a>`).join("")}
-        </div>`
-      )
+        </div>`)
       .join("");
   }
 
@@ -106,11 +97,9 @@
         standardIndex[p.key] = { ...p, categoryName: cat.name, categoryId: cat.id };
       });
     });
-    /* Переменные системы тоже адресуемы из моделей. */
     const m = model();
-    system.globals.concat(system.limits).forEach((v) => {
-      standardIndex[v.id] = { key: v.id, label: v.label, value: (m.g[v.id] !== undefined ? m.g[v.id] : m.l[v.id]), unit: v.unit, rule: v.rule };
-    });
+    system.globals.forEach((v) => { standardIndex[v.id] = { key: v.id, label: v.label, value: m.g[v.id], unit: v.unit, rule: v.rule }; });
+    system.limits.forEach((v) => { standardIndex[v.id] = { key: v.id, label: v.label, value: m.l[v.id], unit: v.unit, rule: v.rule }; });
   }
 
   /* ================= страница «Система размеров» ================= */
@@ -121,11 +110,7 @@
     els.content.innerHTML = `
       <div class="page-header">
         <h1 class="page-title">Система размеров</h1>
-        <p class="page-sub">Ведущие переменные слева — производные пересчитываются мгновенно, чертёж и раскрой перерисовываются на ходу. Пределы проверяют результат: если правка ломает конструктив, поле краснеет.</p>
-      </div>
-
-      <div class="sys-tabs" id="sysTabs">
-        ${system.categories.map((c) => `<button class="sys-tab${c.id === m.cat.id ? " is-active" : ""}" data-cat="${c.id}">${c.name}</button>`).join("")}
+        <p class="page-sub">Модули и глубины редактируются здесь — производные величины, чертёж и раскрой пересчитываются на ходу. Остальные параметры показаны справочно и правятся в <code>data/system.json</code>.</p>
       </div>
 
       <div class="sys-layout">
@@ -136,69 +121,62 @@
 
     renderControls();
     renderOutput();
-
-    document.getElementById("sysTabs").addEventListener("click", (e) => {
-      const btn = e.target.closest("[data-cat]");
-      if (!btn) return;
-      state.categoryId = btn.dataset.cat;
-      saveState();
-      renderSystem();
-    });
   }
 
   function ctrl(v, scope, current) {
-    const val = current[v.id];
-    const changed = val !== v.value;
     return `
-      <label class="ctrl${changed ? " is-changed" : ""}" data-ctrl="${scope}:${v.id}">
-        <span class="ctrl-head">
-          <span class="ctrl-label">${v.label}</span>
-          <span class="ctrl-val">
-            <input type="number" value="${val}" min="${v.min}" max="${v.max}" step="${v.step}"
-                   data-input="${scope}:${v.id}" aria-label="${v.label}">
-            ${v.unit ? `<span class="ctrl-unit">${v.unit}</span>` : ""}
-          </span>
+      <label class="ctrl" data-ctrl="${scope}:${v.id}">
+        <span class="ctrl-label">${v.label}</span>
+        <span class="ctrl-val">
+          <input type="number" value="${current[v.id]}" min="${v.min}" max="${v.max}" step="${v.step}"
+                 data-input="${scope}:${v.id}" aria-label="${v.label}">
+          ${v.unit ? `<span class="ctrl-unit">${v.unit}</span>` : ""}
         </span>
-        <input type="range" value="${val}" min="${v.min}" max="${v.max}" step="${v.step}"
-               data-range="${scope}:${v.id}" aria-label="${v.label}, ползунок">
-        ${v.rule ? `<span class="ctrl-rule">${v.rule}</span>` : ""}
       </label>`;
+  }
+
+  function roList(items, values) {
+    return `
+      <dl class="ro-list">
+        ${items.map((v) => `
+          <div class="ro-row" title="${(v.rule || "").replace(/"/g, "&quot;")}">
+            <dt>${v.label}</dt>
+            <dd>${values[v.id]}${v.unit ? " " + v.unit : ""}</dd>
+          </div>`).join("")}
+      </dl>`;
   }
 
   function renderControls() {
     const m = model();
+    const editable = m.cat.vars.filter((v) => v.editable);
+    const fixed = m.cat.vars.filter((v) => !v.editable);
+
     const groups = {};
-    system.globals.forEach((v) => {
-      const gname = v.group || "Прочее";
-      (groups[gname] = groups[gname] || []).push(v);
-    });
+    system.globals.forEach((v) => { (groups[v.group || "Прочее"] = groups[v.group || "Прочее"] || []).push(v); });
 
     document.getElementById("sysControls").innerHTML = `
       <div class="ctrl-group">
         <p class="ctrl-group-title">Модули · ${m.cat.name}</p>
-        ${m.cat.vars.map((v) => ctrl(v, "cat", m.v)).join("")}
+        ${editable.map((v) => ctrl(v, "cat", m.v)).join("")}
       </div>
-      ${Object.keys(groups).map((gname) => `
-        <div class="ctrl-group">
-          <p class="ctrl-group-title">${gname}</p>
-          ${groups[gname].map((v) => ctrl(v, "glob", m.g)).join("")}
-        </div>`).join("")}
-      <div class="ctrl-group">
-        <p class="ctrl-group-title">Пределы</p>
-        ${system.limits.map((v) => ctrl(v, "lim", m.l)).join("")}
-      </div>
+
       <div class="ctrl-actions">
-        <button class="btn" id="sysReset">Сбросить к исходным</button>
+        <button class="btn" id="sysReset">Сбросить</button>
         <button class="btn btn-primary" id="sysExport">Скопировать JSON</button>
       </div>
       <p class="ctrl-hint" id="sysHint"></p>
+
+      <div class="ro-block">
+        <p class="ro-title">Справочно · правится в файле</p>
+        ${fixed.length ? `<p class="ro-sub">Категория</p>${roList(fixed, m.v)}` : ""}
+        ${Object.keys(groups).map((gname) => `<p class="ro-sub">${gname}</p>${roList(groups[gname], m.g)}`).join("")}
+        <p class="ro-sub">Пределы</p>${roList(system.limits, m.l)}
+      </div>
     `;
 
-    const controls = document.getElementById("sysControls");
-    controls.addEventListener("input", onControlInput);
+    document.getElementById("sysControls").addEventListener("input", onControlInput);
     document.getElementById("sysReset").addEventListener("click", () => {
       state.overrides = { globals: {}, limits: {}, cats: {} };
-      state.configs = {};
       saveState();
       renderSystem();
     });
@@ -206,7 +184,7 @@
   }
 
   function onControlInput(e) {
-    const key = e.target.dataset.input || e.target.dataset.range;
+    const key = e.target.dataset.input;
     if (!key) return;
     const [scope, id] = key.split(":");
     const num = Number(e.target.value);
@@ -215,22 +193,10 @@
     if (scope === "glob") state.overrides.globals[id] = num;
     else if (scope === "lim") state.overrides.limits[id] = num;
     else {
-      const cid = activeCat().id;
+      const cid = catOf(activeModel()).id;
       state.overrides.cats[cid] = state.overrides.cats[cid] || {};
       state.overrides.cats[cid][id] = num;
     }
-
-    /* Синхронизируем парный контрол, не трогая тот, в котором печатают. */
-    const wrap = e.target.closest(".ctrl");
-    if (wrap) {
-      const pair = e.target.dataset.input
-        ? wrap.querySelector(`[data-range="${key}"]`)
-        : wrap.querySelector(`[data-input="${key}"]`);
-      if (pair) pair.value = num;
-      const src = [].concat(system.globals, system.limits, activeCat().vars).find((v) => v.id === id);
-      if (src) wrap.classList.toggle("is-changed", num !== src.value);
-    }
-
     saveState();
     renderOutput();
   }
@@ -251,8 +217,8 @@
 
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(
-        () => done("Значения скопированы — вставь их в data/system.json"),
-        () => done("Скопировать не удалось, значения в консоли")
+        () => done("Скопировано — вставь в data/system.json"),
+        () => done("Не удалось скопировать, значения в консоли")
       );
     } else {
       done("Значения в консоли браузера");
@@ -265,24 +231,24 @@
     const errors = m.checks.filter((c) => !c.ok && c.level === "error");
     const warns = m.checks.filter((c) => !c.ok && c.level === "warn");
     const li = (c) => `<li>${c.label}: <b>${c.actual}</b> при ${c.dir === "max" ? "максимуме" : "минимуме"} ${c.limit} мм</li>`;
+    const depth = m.comp.depths.find((d) => d.id === m.cfg.depth);
+    const exceptions = standards.categories.find((c) => c.id === "exceptions");
 
     document.getElementById("sysOutput").innerHTML = `
-      ${errors.length ? `
-        <div class="alert">
-          <p class="alert-title">Нарушены пределы: ${errors.length}</p>
-          <ul>${errors.map(li).join("")}</ul>
-        </div>` : ""}
-      ${warns.length ? `
-        <div class="alert alert-warn">
-          <p class="alert-title">Требует решения: ${warns.length}</p>
-          <ul>${warns.map(li).join("")}</ul>
-          <p class="alert-note">Не ошибка конструктива: на такой высоте верхний модуль делается антресолью с полкой, а штанга уходит ниже.</p>
-        </div>` : ""}
+      <div class="model-switch" id="modelSwitch">
+        ${system.models.map((x) => `
+          <button class="chip${x.id === m.mdl.id ? " is-active" : ""}" data-model="${x.id}">
+            ${x.name}<span class="chip-note">${x.note || ""}</span>
+          </button>`).join("")}
+      </div>
+
+      ${errors.length ? `<div class="alert"><p class="alert-title">Нарушены пределы: ${errors.length}</p><ul>${errors.map(li).join("")}</ul></div>` : ""}
+      ${warns.length ? `<div class="alert alert-warn"><p class="alert-title">Требует решения: ${warns.length}</p><ul>${warns.map(li).join("")}</ul>
+          <p class="alert-note">Не ошибка конструктива: на такой высоте верхний модуль делается антресолью с полкой, а штанга уходит ниже.</p></div>` : ""}
 
       <section class="section-block">
-        <p class="section-title">Чертёж · ${m.cfg.width ? "X" + m.cfg.width : ""} · ${m.cfg.height} · глубина ${m.comp.depths.find((d) => d.id === m.cfg.depth).value}</p>
+        <p class="section-title">${m.mdl.name} · X${m.cfg.width} · ${m.cfg.height} · глубина ${depth.value}</p>
         <div class="drawing-stage">${Draw.elevation(m.comp, m.g, m.cfg, m.built)}</div>
-        ${renderConfigBar(m)}
       </section>
 
       <section class="section-block">
@@ -305,9 +271,7 @@
       <section class="section-block">
         <p class="section-title">Высоты</p>
         ${tbl(["Код", "Формула", "Корпус", "С цоколем", "Назначение"], m.comp.heights.map((h) => [
-          h.code,
-          `${m.comp.stepH} × ${h.n}${h.half ? " + " + m.comp.halfStep : ""} + ${m.g.panel}`,
-          h.corpus, h.total, h.use || "",
+          h.code, `${m.comp.stepH} × ${h.n}${h.half ? " + " + m.comp.halfStep : ""} + ${m.g.panel}`, h.corpus, h.total, h.use || "",
         ]))}
       </section>
 
@@ -321,17 +285,13 @@
       <section class="section-block">
         <p class="section-title">Глубины</p>
         ${tbl(["Глубина", "Роль", "Чистая", "Плечики", "Полос из листа", "Отход"], m.comp.depths.map((d) => [
-          d.value, d.label, d.clear,
-          d.hangerOk ? "проходит" : "не проходит",
-          d.strips, d.waste,
+          d.value, d.label, d.clear, d.hangerOk ? "проходит" : "не проходит", d.strips, d.waste,
         ]))}
       </section>
 
       <section class="section-block">
-        <p class="section-title">Детали конфигурации</p>
-        ${tbl(["Деталь", "Размер", "Кол-во", "Материал"], m.built.parts.map((p) => [
-          p.name, `${p.w} × ${p.h}`, p.qty, p.material,
-        ]))}
+        <p class="section-title">Детали модели</p>
+        ${tbl(["Деталь", "Размер", "Кол-во", "Материал"], m.built.parts.map((p) => [p.name, `${p.w} × ${p.h}`, p.qty, p.material]))}
       </section>
 
       <section class="section-block">
@@ -344,12 +304,30 @@
           ${stat("ДВП отдельно", (m.nested.hdfArea / 1e6).toFixed(2), "м²")}
         </div>
         <div class="sheet-row">${Draw.sheets(m.nested, m.g, 4)}</div>
-        <p class="notes-box">Оценка по алгоритму полос с учётом пропила и направления текстуры: детали кладутся длинной стороной вдоль листа, без поворота. Реальный раскрой в специализированной программе обычно даёт на 2–4 % лучше.</p>
+        <p class="notes-box">Оценка по алгоритму полос с учётом пропила и направления текстуры: детали кладутся длинной стороной вдоль листа, без поворота. Реальный раскрой обычно даёт на 2–4 % лучше.</p>
       </section>
+
+      ${exceptions ? `
+      <section class="section-block">
+        <p class="section-title">Где сетка ломается</p>
+        <div class="rules-grid">
+          ${(exceptions.rules || []).map((r, i) => `
+            <div class="rule-card">
+              <span class="rule-num">${String(i + 1).padStart(2, "0")}</span>
+              <p class="rule-title">${r.title}</p>
+              <p class="rule-text">${r.text}</p>
+            </div>`).join("")}
+        </div>
+      </section>` : ""}
     `;
 
-    document.getElementById("sysOutput").addEventListener("input", onConfigInput);
-    document.getElementById("sysOutput").addEventListener("change", onConfigInput);
+    document.getElementById("modelSwitch").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-model]");
+      if (!btn) return;
+      state.modelId = btn.dataset.model;
+      saveState();
+      renderSystem();
+    });
   }
 
   function chk(checks, id) {
@@ -358,9 +336,8 @@
   }
 
   function derivedCard(label, value, formula, ok) {
-    const bad = ok === false;
     return `
-      <div class="derived${bad ? " is-bad" : ""}">
+      <div class="derived${ok === false ? " is-bad" : ""}">
         <span class="derived-val">${value}</span>
         <span class="derived-label">${label}</span>
         <span class="derived-formula">${formula}</span>
@@ -386,155 +363,55 @@
       </div>`;
   }
 
-  function renderConfigBar(m) {
-    const d = m.comp.depths;
-    return `
-      <div class="config-bar">
-        <label class="cfg">
-          <span>Ширина</span>
-          <select data-cfg="width">
-            ${m.comp.widths.map((w) => `<option value="${w.n}"${w.n === m.cfg.width ? " selected" : ""}>${w.code} · ${w.corpus}</option>`).join("")}
-          </select>
-        </label>
-        <label class="cfg">
-          <span>Высота</span>
-          <select data-cfg="height">
-            ${m.comp.heights.map((h) => `<option value="${h.code}"${h.code === m.cfg.height ? " selected" : ""}>${h.code} · ${h.total}</option>`).join("")}
-          </select>
-        </label>
-        <label class="cfg">
-          <span>Глубина</span>
-          <select data-cfg="depth">
-            ${d.map((x) => `<option value="${x.id}"${x.id === m.cfg.depth ? " selected" : ""}>${x.value} · ${x.label}</option>`).join("")}
-          </select>
-        </label>
-        <label class="cfg">
-          <span>Полок в секции</span>
-          <input type="number" min="0" max="12" step="1" value="${m.cfg.shelvesPerBay}" data-cfg="shelvesPerBay">
-        </label>
-        <label class="cfg">
-          <span>Ящиков</span>
-          <input type="number" min="0" max="12" step="1" value="${m.cfg.drawers}" data-cfg="drawers">
-        </label>
-      </div>`;
-  }
+  /* ================= страница «Материалы и фурнитура» ================= */
 
-  function onConfigInput(e) {
-    const key = e.target.dataset.cfg;
-    if (!key) return;
-    const cat = activeCat();
-    const cfg = { ...configNow(cat) };
-    cfg[key] = key === "height" || key === "depth" ? e.target.value : Number(e.target.value);
-    state.configs[cat.id] = cfg;
-    saveState();
-    renderOutput();
-  }
-
-  /* ================= страница «Стандарты» ================= */
-
-  function renderStandards() {
-    const m = model();
+  function renderMaterials() {
+    const mats = standards.categories.find((c) => c.id === "materials");
+    const general = standards.categories.find((c) => c.id === "general");
 
     els.content.innerHTML = `
       <div class="page-header">
-        <h1 class="page-title">Стандарты и правила</h1>
-        <p class="page-sub">Свод, собранный из действующих переменных размерной системы. Числа здесь не хранятся — они считаются, поэтому расходиться с системой не могут. Чтобы поменять, иди в <a class="link" href="#system">Систему размеров</a>.</p>
+        <h1 class="page-title">Материалы и фурнитура</h1>
+        <p class="page-sub">Отделки корпуса и фасадов, общие правила оформления. Раздел фурнитуры наполним, когда появятся позиции.</p>
       </div>
 
-      ${renderCategory(standards.categories.find((c) => c.id === "general"))}
+      ${mats ? `
+      <section class="standards-category" id="cat-materials">
+        <h2>${mats.name}</h2>
+        <div class="swatch-row">
+          ${(mats.swatches || []).map((s) => `
+            <div class="swatch">
+              <span class="swatch-circle${s.bordered ? " bordered" : ""}" style="${s.image ? `background-image:url('${s.image}')` : `background-color:${s.color}`}"></span>
+              <span class="swatch-text">
+                <span class="swatch-label">${s.label}</span>
+                ${s.desc ? `<span class="swatch-desc">${s.desc}</span>` : ""}
+              </span>
+            </div>`).join("")}
+        </div>
+      </section>` : ""}
 
-      <section class="standards-category" id="cat-grid">
-        <h2>Модульная сетка · ${m.cat.name}</h2>
-        <p class="category-intro">Габарит по ширине считается по формуле и не принимает промежуточных значений. Панель ${m.g.panel} мм, чистый отсек ${m.comp.clearW} мм.</p>
-        <p class="formula">L = ${m.comp.stepW} × n + ${m.g.panel}</p>
-        ${tbl(["Код", "Модулей", "Габарит", "Номинал"], m.comp.widths.map((w) => [w.code, w.n, w.corpus, w.nominal]))}
+      <section class="standards-category" id="cat-hardware">
+        <h2>Фурнитура</h2>
+        <p class="category-intro">Пока пусто — петли, направляющие, ручки и полкодержатели заведём отдельными позициями со ссылкой на размеры из системы.</p>
       </section>
 
-      <section class="standards-category" id="cat-heights">
-        <h2>Высоты корпуса</h2>
-        <p class="category-intro">Вертикальный модуль ${m.comp.stepH} мм, цоколь ${m.comp.plinth} мм в сетку не входит и прибавляется в конце.</p>
-        ${tbl(["Код", "Формула", "Корпус", "С цоколем", "Назначение"], m.comp.heights.map((h) => [
-          h.code, `${m.comp.stepH} × ${h.n}${h.half ? " + " + m.comp.halfStep : ""} + ${m.g.panel}`, h.corpus, h.total, h.use || "",
-        ]))}
-      </section>
-
-      <section class="standards-category" id="cat-depth">
-        <h2>Глубина</h2>
-        <p class="category-intro">Две глубины: гардеробная держит плечики, неглубокая закрывает полки и открытое хранение. Обе проверены по ширине листа ${m.g.sheetW} мм.</p>
-        ${tbl(["Глубина", "Роль", "Чистая", "Плечики", "Полос из листа", "Отход"], m.comp.depths.map((d) => [
-          d.value, d.label, d.clear, d.hangerOk ? "проходит" : "не проходит", d.strips, d.waste,
-        ]))}
-      </section>
-
-      <section class="standards-category" id="cat-limits">
-        <h2>Пределы</h2>
-        <p class="category-intro">Нормативы, по которым система проверяет сама себя. Не производные и не ручки настройки — граница, за которой конструктив перестаёт работать.</p>
-        ${tbl(["Предел", "Значение", "Сейчас", "Статус"], m.checks.map((c) => [
-          c.label, `${c.dir === "max" ? "≤" : "≥"} ${c.limit}`, c.actual, c.ok ? "в норме" : "нарушен",
-        ]))}
-      </section>
-
-      ${renderCategory(standards.categories.find((c) => c.id === "exceptions"))}
-      ${renderCategory(standards.categories.find((c) => c.id === "materials"))}
+      ${general ? `
+      <section class="standards-category" id="cat-general">
+        <h2>${general.name}</h2>
+        ${roListStatic(general.params)}
+      </section>` : ""}
     `;
   }
 
-  function renderCategory(cat) {
-    if (!cat || cat.visible === false) return "";
-    const body =
-      cat.type === "swatches" ? renderSwatches(cat)
-      : cat.type === "rules" ? renderRules(cat)
-      : "";
+  function roListStatic(params) {
     return `
-        <section class="standards-category" id="cat-${cat.id}">
-          <h2>${cat.name}</h2>
-          ${cat.intro ? `<p class="category-intro">${cat.intro}</p>` : ""}
-          ${body}
-          ${cat.params && cat.params.length ? renderParamsTable(cat.params) : ""}
-        </section>`;
-  }
-
-  function renderParamsTable(params) {
-    return `
-          <div class="params-table">
-            <div class="params-row params-head">
-              <div class="params-col">Параметр</div>
-              <div class="params-col">Значение</div>
-              <div class="params-col params-col-rule">Правило</div>
-            </div>
-            ${params.map((p) => `
-              <div class="params-row" id="param-${p.key}">
-                <div class="params-col label">${p.label}<div class="key">${p.key}</div></div>
-                <div class="params-col val">${p.value}${p.unit ? " " + p.unit : ""}</div>
-                <div class="params-col params-col-rule rule">${p.rule || ""}</div>
-              </div>`).join("")}
-          </div>`;
-  }
-
-  function renderRules(cat) {
-    return `
-          <div class="rules-grid">
-            ${(cat.rules || []).map((r, i) => `
-              <div class="rule-card">
-                <span class="rule-num">${String(i + 1).padStart(2, "0")}</span>
-                <p class="rule-title">${r.title}</p>
-                <p class="rule-text">${r.text}</p>
-              </div>`).join("")}
-          </div>`;
-  }
-
-  function renderSwatches(cat) {
-    return `
-          <div class="swatch-row">
-            ${(cat.swatches || []).map((s) => `
-              <div class="swatch">
-                <span class="swatch-circle${s.bordered ? " bordered" : ""}" style="${s.image ? `background-image:url('${s.image}')` : `background-color:${s.color}`}"></span>
-                <span class="swatch-text">
-                  <span class="swatch-label">${s.label}</span>
-                  ${s.desc ? `<span class="swatch-desc">${s.desc}</span>` : ""}
-                </span>
-              </div>`).join("")}
-          </div>`;
+      <dl class="ro-list ro-wide">
+        ${params.map((p) => `
+          <div class="ro-row" id="param-${p.key}" title="${(p.rule || "").replace(/"/g, "&quot;")}">
+            <dt>${p.label}</dt>
+            <dd>${p.value}${p.unit ? " " + p.unit : ""}</dd>
+          </div>`).join("")}
+      </dl>`;
   }
 
   /* ================= страница модели ================= */
@@ -583,34 +460,16 @@
       </section>
 
       ${linked ? `<section class="section-block">
-              <p class="section-title">Связанные стандарты</p>
-              <div class="linked-standards">${linked}</div>
-            </section>` : ""}
+        <p class="section-title">Связанные стандарты</p>
+        <div class="linked-standards">${linked}</div>
+      </section>` : ""}
 
       ${m.notes ? `<p class="notes-box">${m.notes}</p>` : ""}
     `;
 
     els.content.querySelectorAll("[data-goto-standard]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        location.hash = "standards";
-        requestAnimationFrame(() => {
-          const row = document.getElementById(`param-${btn.dataset.gotoStandard}`);
-          if (row) {
-            row.scrollIntoView({ behavior: "smooth", block: "center" });
-            row.style.background = "var(--blue-soft)";
-            setTimeout(() => (row.style.background = ""), 1200);
-          }
-        });
-      });
+      btn.addEventListener("click", () => { location.hash = "system"; });
     });
-  }
-
-  function renderAccessories() {
-    els.content.innerHTML = `
-      <div class="page-header">
-        <h1 class="page-title">Фурнитура</h1>
-        <p class="page-sub">Раздел пока пустой — наполним, когда появятся данные.</p>
-      </div>`;
   }
 
   /* ---------- роутинг ---------- */
@@ -619,26 +478,24 @@
     const hash = (location.hash || "#system").slice(1);
     setActiveNav(hash);
     if (hash.startsWith("model/")) renderModel(hash.slice("model/".length));
-    else if (hash === "accessories") renderAccessories();
-    else if (hash === "standards") renderStandards();
+    else if (hash === "materials") renderMaterials();
     else renderSystem();
     window.scrollTo(0, 0);
   }
 
   async function init() {
-    const [sysRes, standardsRes, modelsRes] = await Promise.all([
+    const [sysRes, stdRes, modRes] = await Promise.all([
       fetch("data/system.json"),
       fetch("data/standards.json"),
       fetch("data/models.json"),
     ]);
     system = await sysRes.json();
-    standards = await standardsRes.json();
-    models = await modelsRes.json();
+    standards = await stdRes.json();
+    models = await modRes.json();
 
     loadState();
-    if (!state.categoryId || !system.categories.some((c) => c.id === state.categoryId)) {
-      const act = system.categories.find((c) => c.active) || system.categories[0];
-      state.categoryId = act.id;
+    if (!state.modelId || !system.models.some((m) => m.id === state.modelId)) {
+      state.modelId = system.models[0].id;
     }
 
     buildStandardIndex();
