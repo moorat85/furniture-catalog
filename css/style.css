@@ -290,8 +290,6 @@ a { color: inherit; text-decoration: none; }
 .params-col-rule { flex: 1.6 0 0; }
 
 /* отбивка таблицы параметров, когда над ней стоит блок сетки/таблицы/правил */
-.steps-legend + .params-table,
-.steps-list + .params-table,
 .data-table-wrap + .params-table,
 .rules-grid + .params-table,
 .swatch-row + .params-table { margin-top: 32px; }
@@ -315,106 +313,6 @@ a { color: inherit; text-decoration: none; }
   margin: 0 0 24px;
   font-variant-numeric: tabular-nums;
 }
-
-.steps-list {
-  display: flex;
-  flex-direction: column;
-  max-width: 848px;
-}
-
-.step-row {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  padding: 14px 0;
-  border-top: 1px solid var(--stroke);
-}
-
-.step-row:first-child { border-top: none; }
-
-.step-code {
-  width: 32px;
-  flex-shrink: 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-muted);
-}
-
-.step-nums {
-  width: 92px;
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  font-variant-numeric: tabular-nums;
-}
-
-.step-actual {
-  font-size: 16px;
-  line-height: 22px;
-  font-weight: 500;
-}
-
-.step-nominal {
-  font-size: 11px;
-  line-height: 14px;
-  color: var(--text-muted);
-}
-
-.step-bar-wrap {
-  flex: 1 0 0;
-  min-width: 0;
-}
-
-.step-bar {
-  display: flex;
-  align-items: stretch;
-  height: 22px;
-  min-width: 40px;
-}
-
-.step-seg {
-  flex: 1 0 0;
-  background: var(--bg);
-  border-top: 1px solid var(--stroke);
-  border-bottom: 1px solid var(--stroke);
-}
-
-.step-panel {
-  width: 3px;
-  flex-shrink: 0;
-  background: var(--black);
-}
-
-.step-note {
-  width: 168px;
-  flex-shrink: 0;
-  font-size: 11.5px;
-  line-height: 15px;
-  color: var(--text-muted);
-}
-
-.steps-legend {
-  display: flex;
-  gap: 20px;
-  margin: 16px 0 0;
-  font-size: 11.5px;
-  color: var(--text-muted);
-}
-
-.legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-}
-
-.legend-swatch {
-  display: inline-block;
-  height: 12px;
-  flex: 0 0 auto;
-}
-
-b.legend-swatch { width: 26px; }
-i.legend-swatch { width: 3px; }
 
 /* ---------- таблицы данных ---------- */
 .data-table-wrap {
