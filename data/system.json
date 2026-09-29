@@ -525,6 +525,116 @@
         "drawers": 5
       },
       "plural": "Комоды"
+    },
+    {
+      "id": "combo",
+      "name": "Шкаф-стеллаж",
+      "plural": "Шкафы-стеллажи",
+      "active": true,
+      "vars": [
+        {
+          "id": "stepW",
+          "label": "Горизонтальный модуль",
+          "value": 380,
+          "min": 300,
+          "max": 520,
+          "step": 5,
+          "unit": "мм",
+          "rule": "Общий с шкафом: фасад шкафной части и ширина стеллажных отсеков остаются одними деталями.",
+          "editable": true
+        },
+        {
+          "id": "stepH",
+          "label": "Вертикальный модуль",
+          "value": 380,
+          "min": 280,
+          "max": 500,
+          "step": 5,
+          "unit": "мм",
+          "rule": "Один ярус стеллажа = один модуль; полки шкафной части лежат на той же сетке.",
+          "editable": true
+        },
+        {
+          "id": "bay",
+          "label": "Стойка через N модулей",
+          "value": 2,
+          "min": 1,
+          "max": 3,
+          "step": 1,
+          "unit": "",
+          "hidden": true,
+          "rule": "Не используется: стойки и вертикали задаются схемой секций модели."
+        },
+        {
+          "id": "plinth",
+          "label": "Цоколь",
+          "value": 100,
+          "min": 0,
+          "max": 160,
+          "step": 5,
+          "unit": "мм",
+          "rule": "Высота цоколя от пола, константа вне сетки, прибавляется к высоте корпуса. Цоколь — рамка из реек ЛДСП по контуру с перекладинами внутри."
+        },
+        {
+          "id": "setback",
+          "label": "Отступ цоколя от фасада",
+          "value": 30,
+          "min": 0,
+          "max": 80,
+          "step": 5,
+          "unit": "мм",
+          "rule": "Фронтальная рейка цоколя утоплена относительно лицевой плоскости корпуса — место под носок."
+        },
+        {
+          "id": "plinthRib",
+          "label": "Шаг перекладин цоколя",
+          "value": 400,
+          "min": 250,
+          "max": 600,
+          "step": 10,
+          "unit": "мм",
+          "rule": "Макс. расстояние между стенками и перекладинами внутри цоколя; перекладин ставится столько, чтобы его не превысить."
+        },
+        {
+          "id": "depthA",
+          "label": "Глубина шкафной части",
+          "value": 500,
+          "min": 400,
+          "max": 650,
+          "step": 10,
+          "unit": "мм",
+          "editable": true
+        },
+        {
+          "id": "depthB",
+          "label": "Глубина стеллажной части",
+          "value": 400,
+          "min": 250,
+          "max": 500,
+          "step": 10,
+          "unit": "мм",
+          "editable": true
+        }
+      ],
+      "widths": [
+        3
+      ],
+      "heights": [
+        {
+          "code": "C5",
+          "n": 5,
+          "half": false,
+          "use": "пять ярусов"
+        }
+      ],
+      "zones": [],
+      "defaultConfig": {
+        "width": 3,
+        "height": "C5",
+        "depth": "depthA",
+        "shelvesPerBay": 0,
+        "drawers": 0
+      }
     }
   ],
   "models": [
@@ -682,6 +792,63 @@
         "depth": "depthA",
         "shelvesPerBay": 0,
         "drawers": 5
+      }
+    },
+    {
+      "id": "c-perviy",
+      "name": "Первый",
+      "category": "combo",
+      "config": {
+        "width": 3,
+        "height": "C5",
+        "depth": "depthA",
+        "shelvesPerBay": 0,
+        "drawers": 0,
+        "layout": [
+          {
+            "kind": "cabinet",
+            "label": "шкаф",
+            "modules": 1,
+            "depth": "depthA",
+            "back": "ДВП",
+            "doors": 1,
+            "shelves": 4
+          },
+          {
+            "kind": "shelving",
+            "label": "стеллаж",
+            "modules": 2,
+            "depth": "depthB",
+            "back": "ЛДСП",
+            "tiers": [
+              {
+                "splits": [
+                  1
+                ]
+              },
+              {
+                "splits": [
+                  1
+                ]
+              },
+              {
+                "splits": [
+                  1.5
+                ]
+              },
+              {
+                "splits": [
+                  0.5
+                ]
+              },
+              {
+                "splits": [
+                  1.5
+                ]
+              }
+            ]
+          }
+        ]
       }
     }
   ]

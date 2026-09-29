@@ -724,6 +724,93 @@ a { color: inherit; text-decoration: none; }
   color: var(--text-muted);
 }
 
+/* ---------- изделия из секций: чертёж, объём, план, детали ---------- */
+.elevation.tall { height: 580px; }
+
+.elevation .facade {
+  fill: var(--white);
+  fill-opacity: 0.82;
+  stroke: var(--black);
+  stroke-width: 1;
+}
+
+.elevation .cell {
+  fill: var(--text-muted);
+  font-size: 9.5px;
+  font-family: var(--ff-sans);
+  font-variant-numeric: tabular-nums;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+.view-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
+.view-row .drawing-stage { max-width: none; min-width: 0; }
+.view-row .stage-iso { flex: 0 1 360px; }
+.view-row .stage-plan { flex: 1 1 440px; }
+
+.iso { width: 100%; height: 460px; display: block; }
+.plan { width: 100%; height: auto; display: block; }
+
+.iso polygon { stroke: var(--black); stroke-width: 0.7; stroke-linejoin: round; }
+.iso .iso-front { fill: var(--white); }
+.iso .iso-top { fill: var(--bg); }
+.iso .iso-right { fill: var(--stroke); }
+.iso .door.iso-front { fill: var(--bg); }
+.iso .door.iso-top { fill: var(--stroke); }
+.iso .door.iso-right { fill: #d4d8df; }
+.iso .pull { fill: var(--black); }
+
+.plan .pl-outline { fill: none; stroke: var(--black); stroke-width: 0.9; stroke-dasharray: 3.5 2.5; }
+.plan .pl-panel { fill: var(--bg); stroke: var(--black); stroke-width: 0.9; }
+.plan .pl-hdf { fill: var(--black); stroke: var(--black); stroke-width: 0.9; }
+.plan .pl-door { fill: var(--white); stroke: var(--black); stroke-width: 1; }
+.plan .dim line { stroke: var(--text-muted); stroke-width: 0.8; }
+.plan .dim .tick { stroke-width: 1.1; }
+.plan .dim text {
+  fill: var(--text-muted);
+  font-size: 10px;
+  font-family: var(--ff-sans);
+  font-variant-numeric: tabular-nums;
+}
+.plan .dim.accent line { stroke: var(--blue); }
+.plan .dim.accent text { fill: var(--blue); font-weight: 600; font-size: 11px; }
+
+.spec-table.wide { max-width: 760px; }
+.spec-table.wide td:first-child { width: 34%; }
+
+.parts-table {
+  width: 100%;
+  max-width: 760px;
+  border-collapse: collapse;
+  font-size: 15px;
+}
+
+.parts-table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.88px;
+  color: var(--text-muted);
+  padding: 0 12px 8px 0;
+}
+
+.parts-table td {
+  padding: 9px 12px 9px 0;
+  border-top: 1px solid var(--stroke);
+  vertical-align: top;
+}
+
+.parts-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.parts-table td.mat { color: var(--text-muted); }
+.parts-table tfoot td { font-weight: 500; }
+
 @media (max-width: 760px) {
   .sidebar { display: none; }
   .content { padding: 24px 20px 60px; }

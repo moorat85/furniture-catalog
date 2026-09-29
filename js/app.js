@@ -50,7 +50,10 @@
   }
 
   function model() {
-    const mdl = activeModel();
+    return modelOf(activeModel());
+  }
+
+  function modelOf(mdl) {
     const cat = catOf(mdl);
     const g = valuesOf(system.globals, state.overrides.globals);
     const l = valuesOf(system.limits, state.overrides.limits);
@@ -236,17 +239,51 @@
 
   function renderOutput() {
     const m = model();
-    const depth = m.comp.depths.find((d) => d.id === m.cfg.depth);
-    const w = m.comp.widths.find((x) => x.n === m.cfg.width);
 
     document.getElementById("sysOutput").innerHTML = `
       ${modelSwitch(m)}
+      ${drawingBlocks(m)}
+      ${cuttingBlock(m)}
+    `;
 
+    document.getElementById("modelSwitch").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-model]");
+      if (!btn) return;
+      state.modelId = btn.dataset.model;
+      saveState();
+      renderOutput();
+    });
+  }
+
+  /* Фронт, а для секционных изделий ещё объём и вид сверху. */
+  function drawingBlocks(m, opts) {
+    const o = opts || {};
+    const w = m.comp.widths.find((x) => x.n === m.cfg.width);
+    const title = o.title || `${m.mdl.name} · ${w ? w.code : ""} · ${m.cfg.height} · глубина ${Engine.depthLabel(m.comp, m.cfg)}`;
+
+    let html = `
       <section class="section-block">
-        <p class="section-title">${m.mdl.name} · ${w ? w.code : ""} · ${m.cfg.height} · глубина ${depth.value}</p>
+        <p class="section-title">${title}</p>
         <div class="drawing-stage">${Draw.elevation(m.comp, m.g, m.cfg, m.built)}</div>
-      </section>
+      </section>`;
 
+    if (m.cfg.layout) html += viewsBlock(m);
+    return html;
+  }
+
+  function viewsBlock(m) {
+    return `
+      <section class="section-block">
+        <p class="section-title">Объём и вид сверху</p>
+        <div class="view-row">
+          <div class="drawing-stage stage-iso">${Draw.iso(m.comp, m.g, m.cfg, m.built)}</div>
+          <div class="drawing-stage stage-plan">${Draw.plan(m.comp, m.g, m.cfg, m.built)}</div>
+        </div>
+      </section>`;
+  }
+
+  function cuttingBlock(m) {
+    return `
       <section class="section-block">
         <p class="section-title">Раскрой ЛДСП</p>
         <div class="stat-row">
@@ -257,16 +294,7 @@
         </div>
         <div class="sheet-row">${Draw.sheets(m.nested, m.g, 4)}</div>
         <p class="notes-box">Оценка по алгоритму полос с учётом пропила и направления текстуры: детали кладутся длинной стороной вдоль листа, без поворота. Реальный раскрой обычно даёт на 2–4 % лучше.</p>
-      </section>
-    `;
-
-    document.getElementById("modelSwitch").addEventListener("click", (e) => {
-      const btn = e.target.closest("[data-model]");
-      if (!btn) return;
-      state.modelId = btn.dataset.model;
-      saveState();
-      renderOutput();
-    });
+      </section>`;
   }
 
   function stat(label, value, unit) {
@@ -281,7 +309,7 @@
 
   function renderReadOnly() {
     const m = model();
-    const fixed = m.cat.vars.filter((v) => !v.editable);
+    const fixed = m.cat.vars.filter((v) => !v.editable && !v.hidden);
 
     const groups = {};
     system.globals.forEach((v) => { (groups[v.group || "Прочее"] = groups[v.group || "Прочее"] || []).push(v); });
@@ -364,20 +392,139 @@
 
   /* ================= страница модели ================= */
 
-  function renderModel(id) {
-    const m = models.find((item) => item.id === id);
-    if (!m) {
-      els.content.innerHTML = `<p class="page-sub">Модель не найдена.</p>`;
-      return;
-    }
-
-    const linked = (m.linkedStandards || [])
+  function linkedChips(m) {
+    return (m.linkedStandards || [])
       .map((key) => {
         const std = standardIndex[key];
         if (!std) return "";
         return `<button class="standard-chip" data-goto-standard="${key}">${std.label}: ${std.value}${std.unit ? " " + std.unit : ""}</button>`;
       })
       .join("");
+  }
+
+  function bindStandardChips() {
+    els.content.querySelectorAll("[data-goto-standard]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        location.hash = "system";
+        requestAnimationFrame(() => {
+          const row = document.getElementById(`param-${btn.dataset.gotoStandard}`);
+          if (row) {
+            row.scrollIntoView({ behavior: "smooth", block: "center" });
+            row.classList.add("is-flash");
+            setTimeout(() => row.classList.remove("is-flash"), 1400);
+          }
+        });
+      });
+    });
+  }
+
+  /* ---------- карточка со ссылкой на модель размерной системы: всё считается на лету ---------- */
+
+  const fmt = Engine.fmtMod;
+
+  function liveSpecs(mm) {
+    const geo = mm.built.corpus && mm.built.corpus.geo;
+    if (!geo) return [];
+    const { secs } = geo;
+    const maxD = Math.max(...secs.map((x) => x.depth));
+    const rows = [];
+
+    rows.push(["Габарит", `${geo.corpusW} × ${maxD} × ${geo.totalH} мм`]);
+    rows.push(["Модули", `${mm.built.corpus.w.code} · ${secs.map((x) => `${x.modules} ${x.label}`).join(" + ")}`]);
+    rows.push(["Глубина корпуса", secs.map((x) => `${x.depth} (${x.label})`).join(" / ") + " мм"]);
+    rows.push(["Цоколь", `${geo.plinth} мм · рамка из реек ЛДСП ${geo.panel} мм с перекладинами, фронт утоплен на ${geo.setback} мм`]);
+
+    secs.filter((x) => x.kind === "shelving").forEach((sec) => {
+      const first = sec.rows[0];
+      rows.push([`Ярусов (${sec.label})`, `${sec.rows.length}, в свету по высоте ${Math.round(first.y1 - first.y0)} мм`]);
+      const scheme = sec.rows.map((r) => {
+        const cuts = [0, ...r.splits, sec.modules];
+        return cuts.slice(1).map((c, i) => fmt(c - cuts[i])).join("+");
+      });
+      rows.push(["Деление ярусов, снизу вверх", scheme.join(" · ")]);
+    });
+
+    secs.filter((x) => x.doors.length).forEach((sec) => {
+      rows.push([`Фасады (${sec.label})`, `${sec.doors.length} × ${sec.doors[0].w} × ${sec.doors[0].h} мм`]);
+      rows.push([`Полок (${sec.label})`, `${sec.shelfYs.length}`]);
+    });
+
+    rows.push(["Задняя стенка", secs.map((x) => `${x.label} — ${x.backMat} ${x.backT} мм`).join(" · ")]);
+    rows.push(["Раскрой ЛДСП", `${mm.nested.count} л. ${mm.g.sheetL} × ${mm.g.sheetW}, использование ${Math.round(mm.nested.util * 100)} %`]);
+    return rows;
+  }
+
+  function partsTable(mm) {
+    const rows = mm.built.parts.map((p) => `
+      <tr>
+        <td>${p.name}</td>
+        <td class="num">${p.w} × ${p.h}</td>
+        <td class="num">${p.qty}</td>
+        <td class="mat">${p.material}</td>
+      </tr>`).join("");
+    const total = mm.built.parts.reduce((a, p) => a + p.qty, 0);
+    return `
+      <table class="parts-table">
+        <thead><tr><th>Деталь</th><th class="num">Размер, мм</th><th class="num">Шт</th><th>Материал</th></tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr><td>Всего деталей</td><td></td><td class="num">${total}</td><td></td></tr></tfoot>
+      </table>`;
+  }
+
+  function renderLiveModel(m) {
+    const sm = system.models.find((x) => x.id === m.systemModel);
+    if (!sm) {
+      els.content.innerHTML = `<p class="page-sub">Модель размерной системы «${m.systemModel}» не найдена.</p>`;
+      return;
+    }
+    const mm = modelOf(sm);
+    const linked = linkedChips(m);
+
+    els.content.innerHTML = `
+      <div class="model-head">
+        <div>
+          <p class="page-eyebrow">${m.categoryLabel}</p>
+          <h1 class="page-title">${m.name}</h1>
+        </div>
+        <span class="status-pill">${m.status}</span>
+      </div>
+
+      ${drawingBlocks(mm, { title: "Фронт" })}
+
+      <section class="section-block">
+        <p class="section-title">Спецификация</p>
+        <table class="spec-table wide">
+          ${liveSpecs(mm).map((r) => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join("")}
+        </table>
+      </section>
+
+      <section class="section-block">
+        <p class="section-title">Детали</p>
+        ${partsTable(mm)}
+      </section>
+
+      ${cuttingBlock(mm)}
+
+      ${linked ? `<section class="section-block">
+        <p class="section-title">Связанные стандарты</p>
+        <div class="linked-standards">${linked}</div>
+      </section>` : ""}
+
+      ${m.notes ? `<p class="notes-box">${m.notes}</p>` : ""}
+    `;
+
+    bindStandardChips();
+  }
+
+  function renderModel(id) {
+    const m = models.find((item) => item.id === id);
+    if (!m) {
+      els.content.innerHTML = `<p class="page-sub">Модель не найдена.</p>`;
+      return;
+    }
+    if (m.systemModel) return renderLiveModel(m);
+
+    const linked = linkedChips(m);
 
     els.content.innerHTML = `
       <div class="model-head">
@@ -415,19 +562,7 @@
       ${m.notes ? `<p class="notes-box">${m.notes}</p>` : ""}
     `;
 
-    els.content.querySelectorAll("[data-goto-standard]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        location.hash = "system";
-        requestAnimationFrame(() => {
-          const row = document.getElementById(`param-${btn.dataset.gotoStandard}`);
-          if (row) {
-            row.scrollIntoView({ behavior: "smooth", block: "center" });
-            row.classList.add("is-flash");
-            setTimeout(() => row.classList.remove("is-flash"), 1400);
-          }
-        });
-      });
-    });
+    bindStandardChips();
   }
 
   /* ---------- роутинг ---------- */

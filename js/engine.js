@@ -50,6 +50,7 @@ window.Engine = (() => {
     });
 
     return {
+      vars,
       stepW, stepH, bay, plinth, halfStep,
       clearW, bayClear, facadeW,
       widths, heights, zones, depths,
@@ -79,6 +80,7 @@ window.Engine = (() => {
   /* ---------- список деталей конфигурации ---------- */
 
   function buildParts(comp, globals, config) {
+    if (Array.isArray(config.layout)) return buildLayoutParts(comp, globals, config);
     const { panel, back } = globals;
     const w = comp.widths.find((x) => x.n === config.width);
     const h = comp.heights.find((x) => x.code === config.height);
@@ -119,6 +121,173 @@ window.Engine = (() => {
     push("Задняя стенка", w.corpus, h.corpus, 1, "ДВП");
 
     return { parts, corpus: { w, h, d, secs, shelfDepth } };
+  }
+
+
+  /* ---------- изделие из нескольких секций (config.layout) ----------
+     Секции стоят в ряд, у каждой своя глубина и своя задняя стенка; все секции
+     прижаты к задней плоскости, поэтому более мелкая отступает спереди.
+       kind "cabinet"  — закрытая часть: фасад(ы) и полки по сетке ярусов;
+       kind "shelving" — открытая часть: ярусы и вертикали внутри яруса.
+     tiers (снизу вверх): { splits: [м] } — положение вертикали в модулях от левой
+     стойки секции; 1 и 1 = деление пополам, 1.5 = полтора модуля слева и полмодуля справа. */
+
+  const fmtMod = (n) => String(Math.round(n * 100) / 100).replace(".", ",");
+
+  function buildLayoutParts(comp, globals, config) {
+    const P = globals.panel;
+    const { stepW, stepH, plinth } = comp;
+    const h = comp.heights.find((x) => x.code === config.height);
+    if (!h || !config.layout.length) return { parts: [], corpus: null };
+
+    const tiersN = h.n;
+    const modulesTotal = config.layout.reduce((a, s) => a + s.modules, 0);
+    const corpusW = stepW * modulesTotal + P;
+    const corpusH = h.corpus;
+    const totalH = corpusH + plinth;
+    const innerH = corpusH - 2 * P;
+
+    /* низ полки k (1..tiersN-1): полки лежат на общей сетке ярусов */
+    const shelfY = (k) => plinth + k * stepH;
+
+    let cursor = P;
+    const secs = config.layout.map((s, i) => {
+      const d = comp.depths.find((x) => x.id === s.depth) || comp.depths[0];
+      const clear = s.modules * stepW - P;
+      const backMat = s.back === "ЛДСП" ? "ЛДСП" : "ДВП";
+      const backT = backMat === "ЛДСП" ? P : globals.back;
+      const recess = s.kind === "cabinet" ? 10 : 0;
+      const sec = {
+        ...s, i, label: s.label || s.kind, depth: d.value, depthId: d.id,
+        clear, x0: cursor, x1: cursor + clear, backMat, backT,
+        shelfDepth: Math.max(100, d.value - backT - recess),
+        shelfYs: [], rows: [], doors: [],
+      };
+      cursor += clear + P;
+
+      if (s.kind === "cabinet") {
+        const cnt = Math.min(s.shelves || 0, tiersN - 1);
+        for (let k = 1; k <= cnt; k += 1) sec.shelfYs.push(shelfY(k));
+        const doorsN = s.doors || 1;
+        const doorW = (s.modules * stepW) / doorsN - globals.gap;
+        for (let j = 0; j < doorsN; j += 1) {
+          const left = sec.x0 - P / 2 + globals.gap / 2 + j * (s.modules * stepW) / doorsN;
+          sec.doors.push({ x0: left, x1: left + doorW, y0: plinth + globals.gap, y1: totalH - globals.gap, w: round(doorW), h: round(corpusH - 2 * globals.gap) });
+        }
+      } else {
+        for (let k = 1; k < tiersN; k += 1) sec.shelfYs.push(shelfY(k));
+        for (let k = 1; k <= tiersN; k += 1) {
+          const t = (s.tiers || [])[k - 1] || {};
+          const splits = (t.splits || (t.split != null ? [t.split] : [])).filter((v) => v > 0 && v < s.modules);
+          const y0 = k === 1 ? plinth + P : shelfY(k - 1) + P;
+          const y1 = k === tiersN ? totalH - P : shelfY(k);
+          const dividers = splits.map((sp) => {
+            const cx = sec.x0 - P / 2 + sp * stepW;
+            return { split: sp, x0: cx - P / 2, x1: cx + P / 2 };
+          });
+          /* чистые ширины отсеков яруса слева направо */
+          const cells = [];
+          let from = sec.x0;
+          dividers.forEach((dv) => { cells.push({ x0: from, x1: dv.x0, clear: round(dv.x0 - from) }); from = dv.x1; });
+          cells.push({ x0: from, x1: sec.x1, clear: round(sec.x1 - from) });
+          sec.rows.push({ k, y0, y1, splits, dividers, cells });
+        }
+      }
+      return sec;
+    });
+
+    /* Цоколь — коробка из реек ЛДСП по контуру (задняя, фронтальная, боковые)
+       и перекладины внутри: расстояние между стенками и перекладинами не больше plinthRib.
+       Фронт утоплен на setback; общая стенка между секциями идёт по более глубокой. */
+    const plinthBoxes = [];
+    const setback = comp.vars && comp.vars.setback != null ? comp.vars.setback : 30;
+    const ribSpan = comp.vars && comp.vars.plinthRib ? comp.vars.plinthRib : 400;
+    if (plinth > 0) {
+      const t = P;
+      const pb = (role, label, x0, x1, z0, z1) => plinthBoxes.push({ role, label, x0, x1, z0, z1 });
+      const dp = (sec) => sec.depth - setback;
+      pb("rear", "", 0, corpusW, 0, t);
+      secs.forEach((sec, i) => {
+        const Dp = dp(sec);
+        const nxt = secs[i + 1];
+        const innerD = Dp - 2 * t;
+        pb("front", sec.label, i === 0 ? 0 : sec.x0, sec.x1 + P, Dp - t, Dp);
+        if (i === 0) pb("wall", "", 0, P, t, Dp - t);
+        pb("wall", "", sec.x1, sec.x1 + P, t, (nxt ? Math.max(Dp, dp(nxt)) : Dp) - t);
+
+        const across = Math.max(0, Math.ceil(innerD / ribSpan) - 1);
+        for (let k = 1; k <= across; k += 1) {
+          const z0 = t + (k * innerD) / (across + 1) - t / 2;
+          pb("rib", sec.label, sec.x0, sec.x1, z0, z0 + t);
+        }
+        const along = Math.max(0, Math.ceil(sec.clear / ribSpan) - 1);
+        for (let k = 1; k <= along; k += 1) {
+          const x0 = sec.x0 + (k * sec.clear) / (along + 1) - P / 2;
+          pb("rib", sec.label, x0, x0 + P, t, Dp - t);
+        }
+      });
+    }
+
+    const parts = [];
+    const push = (name, ww, hh, qty, material) => {
+      if (qty > 0 && ww > 0 && hh > 0) parts.push({ name, w: round(ww), h: round(hh), qty, material: material || "ЛДСП" });
+    };
+
+    const first = secs[0];
+    const last = secs[secs.length - 1];
+    if (first.depth === last.depth) push("Боковина", corpusH, first.depth, 2);
+    else {
+      push(`Боковина левая (${first.label})`, corpusH, first.depth, 1);
+      push(`Боковина правая (${last.label})`, corpusH, last.depth, 1);
+    }
+
+    for (let i = 0; i < secs.length - 1; i += 1) {
+      push(`Стойка между секциями: ${secs[i].label} | ${secs[i + 1].label}`, innerH, Math.max(secs[i].depth, secs[i + 1].depth), 1);
+    }
+
+    secs.forEach((sec) => {
+      push(`Горизонт верх/низ (${sec.label})`, sec.clear, sec.depth, 2);
+      push(`Полка (${sec.label})`, sec.clear, sec.shelfDepth, sec.shelfYs.length);
+
+      if (sec.kind === "shelving") {
+        const dividers = sec.rows.reduce((a, r) => a + r.dividers.length, 0);
+        push(`Вертикаль яруса (${sec.label})`, stepH - P, sec.shelfDepth, dividers);
+      }
+      if (sec.kind === "cabinet" && sec.doors.length) {
+        push("Фасад", sec.doors[0].w, sec.doors[0].h, sec.doors.length);
+      }
+
+      if (sec.backMat === "ЛДСП") push(`Задняя стенка (${sec.label})`, sec.clear, innerH, 1, "ЛДСП");
+      else push(`Задняя стенка (${sec.label})`, sec.modules * stepW + P, corpusH, 1, "ДВП");
+    });
+
+    const plinthNames = { rear: "Цоколь: задняя рейка", front: "Цоколь: фронт", wall: "Цоколь: боковая рейка", rib: "Цоколь: перекладина" };
+    const grouped = {};
+    plinthBoxes.forEach((b) => {
+      const len = round(Math.max(b.x1 - b.x0, b.z1 - b.z0));
+      const name = plinthNames[b.role] + (b.label ? ` (${b.label})` : "");
+      const key = name + "|" + len;
+      grouped[key] = grouped[key] || { name, len, qty: 0 };
+      grouped[key].qty += 1;
+    });
+    Object.keys(grouped).forEach((k) => push(grouped[k].name, grouped[k].len, plinth, grouped[k].qty));
+
+    const w = comp.widths.find((x) => x.n === modulesTotal)
+      || { code: modulesTotal + "W", n: modulesTotal, corpus: corpusW, nominal: nominal(corpusW) };
+    const geo = { corpusW, corpusH, totalH, innerH, plinth, panel: P, tiersN, gap: globals.gap, setback, ribSpan, plinthBoxes, secs };
+
+    return { parts, corpus: { w, h, d: comp.depths.find((x) => x.id === config.depth) || comp.depths[0], secs, shelfDepth: first.shelfDepth, geo } };
+  }
+
+  /* Подпись глубины: одна цифра или «500 / 400» для разноглубинных секций. */
+  function depthLabel(comp, config) {
+    const ids = Array.isArray(config.layout) ? config.layout.map((s) => s.depth) : [config.depth];
+    const vals = [];
+    ids.forEach((id) => {
+      const d = comp.depths.find((x) => x.id === id);
+      if (d && !vals.includes(d.value)) vals.push(d.value);
+    });
+    return vals.join(" / ");
   }
 
   /* ---------- оценка раскроя: укладка полосами вдоль листа ---------- */
@@ -187,5 +356,5 @@ window.Engine = (() => {
     };
   }
 
-  return { compute, railFor, buildParts, nest, bays, nominal };
+  return { compute, railFor, buildParts, nest, bays, nominal, depthLabel, fmtMod };
 })();
