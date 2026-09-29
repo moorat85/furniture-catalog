@@ -229,8 +229,15 @@ window.Engine = (() => {
     }
 
     const parts = [];
-    const push = (name, ww, hh, qty, material) => {
-      if (qty > 0 && ww > 0 && hh > 0) parts.push({ name, w: round(ww), h: round(hh), qty, material: material || "ЛДСП" });
+    /* role: body — корпус и фасады, back — задняя стенка; декор берётся из config.decors[role] */
+    const push = (name, ww, hh, qty, material, role) => {
+      if (qty > 0 && ww > 0 && hh > 0) {
+        const r = role || "body";
+        const mat = material || "ЛДСП";
+        const part = { name, w: round(ww), h: round(hh), qty, material: mat, role: r };
+        if (mat === "ЛДСП" && config.decors && config.decors[r]) part.decor = config.decors[r];
+        parts.push(part);
+      }
     };
 
     const first = secs[0];
@@ -257,7 +264,7 @@ window.Engine = (() => {
         push("Фасад", sec.doors[0].w, sec.doors[0].h, sec.doors.length);
       }
 
-      if (sec.backMat === "ЛДСП") push(`Задняя стенка (${sec.label})`, sec.clear, innerH, 1, "ЛДСП");
+      if (sec.backMat === "ЛДСП") push(`Задняя стенка (${sec.label})`, sec.clear, innerH, 1, "ЛДСП", "back");
       else push(`Задняя стенка (${sec.label})`, sec.modules * stepW + P, corpusH, 1, "ДВП");
     });
 
@@ -292,14 +299,14 @@ window.Engine = (() => {
 
   /* ---------- оценка раскроя: укладка полосами вдоль листа ---------- */
 
-  function nest(parts, globals) {
+  /* Раскрой одной группы деталей (один декор) на своих листах. */
+  function nestGroup(list, globals) {
     const L = globals.sheetL;
     const W = globals.sheetW;
     const k = globals.kerf;
 
-    /* Только ЛДСП: ДВП считается отдельно, у неё свой формат. */
     const flat = [];
-    parts.filter((p) => p.material === "ЛДСП").forEach((p) => {
+    list.forEach((p) => {
       for (let i = 0; i < p.qty; i += 1) flat.push({ name: p.name, l: Math.max(p.w, p.h), w: Math.min(p.w, p.h) });
     });
     /* Длинную сторону кладём вдоль листа — направление текстуры. */
@@ -340,19 +347,46 @@ window.Engine = (() => {
     });
 
     const count = sheets.length;
-    const util = count ? partsArea / (count * L * W) : 0;
+    return {
+      sheets,
+      count,
+      partsArea,
+      util: count ? partsArea / (count * L * W) : 0,
+      totalPieces: flat.length,
+      oversize: sheets.some((s) => s.oversize),
+    };
+  }
+
+  /* Раскрой ЛДСП: детали разного декора (part.decor) режутся из своих листов,
+     ДВП считается отдельно — у неё свой формат. */
+  function nest(parts, globals) {
+    const L = globals.sheetL;
+    const W = globals.sheetW;
+
+    const lds = parts.filter((p) => p.material === "ЛДСП");
+    const keys = [];
+    lds.forEach((p) => { const key = p.decor || ""; if (!keys.includes(key)) keys.push(key); });
+
+    const groups = keys.map((key) => ({ decor: key, ...nestGroup(lds.filter((p) => (p.decor || "") === key), globals) }));
+
+    const sheets = [];
+    groups.forEach((g) => g.sheets.forEach((sh) => sheets.push({ ...sh, decor: g.decor })));
+
+    const count = sheets.length;
+    const partsArea = groups.reduce((a, g) => a + g.partsArea, 0);
     const hdfArea = parts
       .filter((p) => p.material === "ДВП")
       .reduce((a, p) => a + p.w * p.h * p.qty, 0);
 
     return {
       sheets,
+      groups,
       count,
-      util,
+      util: count ? partsArea / (count * L * W) : 0,
       partsArea,
       hdfArea,
-      totalPieces: flat.length,
-      oversize: sheets.some((s) => s.oversize),
+      totalPieces: groups.reduce((a, g) => a + g.totalPieces, 0),
+      oversize: groups.some((g) => g.oversize),
     };
   }
 

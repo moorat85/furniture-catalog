@@ -17,7 +17,7 @@
   let models = [];
   let standardIndex = {};
 
-  let state = { modelId: null, overrides: { globals: {}, limits: {}, cats: {} } };
+  let state = { modelId: null, variants: {}, overrides: { globals: {}, limits: {}, cats: {} } };
 
   /* ---------- состояние ---------- */
 
@@ -26,7 +26,7 @@
       const raw = localStorage.getItem(STORE_KEY);
       if (raw) {
         const p = JSON.parse(raw);
-        state = { ...state, ...p, overrides: { globals: {}, limits: {}, cats: {}, ...(p.overrides || {}) } };
+        state = { ...state, ...p, variants: { ...(p.variants || {}) }, overrides: { globals: {}, limits: {}, cats: {}, ...(p.overrides || {}) } };
       }
     } catch (e) { /* хранилище недоступно — работаем без сохранения */ }
   }
@@ -43,6 +43,19 @@
     return system.categories.find((c) => c.id === mdl.category) || system.categories[0];
   }
 
+  /* Декоры ЛДСП — из образцов на странице «Материалы»: id -> { label, color, image } */
+  function decorInfo(id) {
+    const mats = standards.categories.find((c) => c.id === "materials");
+    const sw = mats && (mats.swatches || []).find((x) => x.id === id);
+    return sw ? { id: sw.id, label: sw.label, color: sw.color, image: sw.image || null } : null;
+  }
+
+  function palette(mm) {
+    const d = mm.cfg.decors || {};
+    const fallback = { label: "", color: "#E9ECF2", image: null };
+    return { body: decorInfo(d.body) || fallback, back: decorInfo(d.back || d.body) || fallback };
+  }
+
   function valuesOf(list, over) {
     const out = {};
     list.forEach((v) => { out[v.id] = over && over[v.id] !== undefined ? over[v.id] : v.value; });
@@ -53,13 +66,13 @@
     return modelOf(activeModel());
   }
 
-  function modelOf(mdl) {
+  function modelOf(mdl, decors) {
     const cat = catOf(mdl);
     const g = valuesOf(system.globals, state.overrides.globals);
     const l = valuesOf(system.limits, state.overrides.limits);
     const v = valuesOf(cat.vars, state.overrides.cats[cat.id]);
     const comp = Engine.compute(cat, v, g, l);
-    const cfg = mdl.config;
+    const cfg = decors ? { ...mdl.config, decors: { ...(mdl.config.decors || {}), ...decors } } : mdl.config;
     const built = Engine.buildParts(comp, g, cfg);
     const nested = Engine.nest(built.parts, g);
     const railHeight = Engine.railFor(comp, g, cfg.height);
@@ -255,20 +268,23 @@
     });
   }
 
-  /* Фронт, а для секционных изделий ещё объём и вид сверху. */
+  /* Фронт, а для секционных изделий ещё объём, вид сверху и сечение цоколя. */
   function drawingBlocks(m, opts) {
     const o = opts || {};
     const w = m.comp.widths.find((x) => x.n === m.cfg.width);
     const title = o.title || `${m.mdl.name} · ${w ? w.code : ""} · ${m.cfg.height} · глубина ${Engine.depthLabel(m.comp, m.cfg)}`;
 
-    let html = `
+    let html = frontBlock(m, title);
+    if (m.cfg.layout) html += viewsBlock(m) + plinthBlock(m);
+    return html;
+  }
+
+  function frontBlock(m, title) {
+    return `
       <section class="section-block">
         <p class="section-title">${title}</p>
         <div class="drawing-stage">${Draw.elevation(m.comp, m.g, m.cfg, m.built)}</div>
       </section>`;
-
-    if (m.cfg.layout) html += viewsBlock(m);
-    return html;
   }
 
   function viewsBlock(m) {
@@ -282,7 +298,66 @@
       </section>`;
   }
 
+  function block3d(m) {
+    return `
+      <section class="section-block">
+        <p class="section-title">3D-вид</p>
+        <div class="drawing-stage">${Draw.iso(m.comp, m.g, m.cfg, m.built)}</div>
+      </section>`;
+  }
+
+  function planBlock(m) {
+    return `
+      <section class="section-block">
+        <p class="section-title">Вид сверху</p>
+        <div class="drawing-stage">${Draw.plan(m.comp, m.g, m.cfg, m.built)}</div>
+      </section>`;
+  }
+
+  function plinthBlock(m) {
+    const geo = m.built.corpus && m.built.corpus.geo;
+    if (!geo || !geo.plinthBoxes || !geo.plinthBoxes.length) return "";
+    return `
+      <section class="section-block">
+        <p class="section-title">Сечение цоколя</p>
+        <div class="drawing-stage">${Draw.plinthSection(m.comp, m.g, m.cfg, m.built)}</div>
+        <p class="notes-box">Разрез на высоте ${Math.round(geo.plinth / 2)} мм от пола, вид сверху. Штриховка — рейки ЛДСП ${geo.panel} × ${geo.plinth} мм: контур (задняя, фронтальная, боковые) и перекладины внутри; пунктир — контур корпуса над цоколем. Размеры — просветы между опорами, синие — глубина цоколя.</p>
+      </section>`;
+  }
+
+  function rendersBlock(m) {
+    const pal = palette(m);
+    return `
+      <section class="section-block">
+        <p class="section-title">Рендеры</p>
+        <div class="renders-row">
+          <figure class="render-fig">
+            <div class="render-stage">${Draw.render3q(m.comp, m.g, m.cfg, m.built, pal)}</div>
+            <figcaption>Вид в три четверти</figcaption>
+          </figure>
+          <figure class="render-fig">
+            <div class="render-stage">${Draw.renderFront(m.comp, m.g, m.cfg, m.built, pal)}</div>
+            <figcaption>Фронт</figcaption>
+          </figure>
+        </div>
+        <p class="notes-box">Упрощённая визуализация по геометрии модели, цвета — из выбранного исполнения. Полноценные рендеры добавим позже.</p>
+      </section>`;
+  }
+
   function cuttingBlock(m) {
+    const groups = m.nested.groups || [];
+    const showGroups = groups.length > 1 || groups.some((g) => g.decor);
+    const rows = groups.map((g) => {
+      const info = g.decor ? decorInfo(g.decor) : null;
+      return `
+        <tr>
+          <td>${info ? `<i class="dot" style="background:${info.color}"></i>${info.label}` : "ЛДСП"}</td>
+          <td class="num">${g.count}</td>
+          <td class="num">${(g.partsArea / 1e6).toFixed(2)} м²</td>
+          <td class="num">${Math.round(g.util * 100)} %</td>
+        </tr>`;
+    }).join("");
+
     return `
       <section class="section-block">
         <p class="section-title">Раскрой ЛДСП</p>
@@ -292,8 +367,13 @@
           ${stat("Деталей на раскрой", m.nested.totalPieces, "шт")}
           ${stat("Площадь деталей", (m.nested.partsArea / 1e6).toFixed(2), "м²")}
         </div>
-        <div class="sheet-row">${Draw.sheets(m.nested, m.g, 4)}</div>
-        <p class="notes-box">Оценка по алгоритму полос с учётом пропила и направления текстуры: детали кладутся длинной стороной вдоль листа, без поворота. Реальный раскрой обычно даёт на 2–4 % лучше.</p>
+        ${showGroups ? `
+        <table class="parts-table cut-groups">
+          <thead><tr><th>Декор</th><th class="num">Листов</th><th class="num">Площадь деталей</th><th class="num">Использование</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>` : ""}
+        <div class="sheet-row">${Draw.sheets(m.nested, m.g, 6, decorInfo)}</div>
+        <p class="notes-box">Оценка по алгоритму полос с учётом пропила и направления текстуры: детали кладутся длинной стороной вдоль листа, без поворота. Детали разных декоров режутся из разных листов. Реальный раскрой обычно даёт на 2–4 % лучше.</p>
       </section>`;
   }
 
@@ -427,12 +507,29 @@
     if (!geo) return [];
     const { secs } = geo;
     const maxD = Math.max(...secs.map((x) => x.depth));
+    const pal = palette(mm);
     const rows = [];
 
     rows.push(["Габарит", `${geo.corpusW} × ${maxD} × ${geo.totalH} мм`]);
     rows.push(["Модули", `${mm.built.corpus.w.code} · ${secs.map((x) => `${x.modules} ${x.label}`).join(" + ")}`]);
     rows.push(["Глубина корпуса", secs.map((x) => `${x.depth} (${x.label})`).join(" / ") + " мм"]);
+    if (pal.body.label) rows.push(["Исполнение", `корпус и фасад — ${pal.body.label.toLowerCase()}, задняя стенка стеллажа — ${pal.back.label.toLowerCase()}`]);
     rows.push(["Цоколь", `${geo.plinth} мм · рамка из реек ЛДСП ${geo.panel} мм с перекладинами, фронт утоплен на ${geo.setback} мм`]);
+
+    const ribs = geo.plinthBoxes.filter((b) => b.role === "rib");
+    if (ribs.length) {
+      const txt = secs.map((sec) => {
+        const mine = ribs.filter((b) => b.label === sec.label);
+        if (!mine.length) return null;
+        const cross = mine.filter((b) => (b.x1 - b.x0) >= (b.z1 - b.z0)).length;
+        const along = mine.length - cross;
+        const bits = [];
+        if (cross) bits.push(`${cross} поперечн.`);
+        if (along) bits.push(`${along} продольн.`);
+        return `${sec.label} — ${bits.join(", ")}`;
+      }).filter(Boolean);
+      rows.push(["Перекладины цоколя", `${txt.join(" · ")}; шаг не более ${geo.ribSpan} мм`]);
+    }
 
     secs.filter((x) => x.kind === "shelving").forEach((sec) => {
       const first = sec.rows[0];
@@ -450,18 +547,26 @@
     });
 
     rows.push(["Задняя стенка", secs.map((x) => `${x.label} — ${x.backMat} ${x.backT} мм`).join(" · ")]);
-    rows.push(["Раскрой ЛДСП", `${mm.nested.count} л. ${mm.g.sheetL} × ${mm.g.sheetW}, использование ${Math.round(mm.nested.util * 100)} %`]);
+
+    const cut = (mm.nested.groups || []).map((g) => {
+      const info = g.decor ? decorInfo(g.decor) : null;
+      return `${info ? info.label.toLowerCase() : "ЛДСП"} ${g.count}`;
+    });
+    rows.push(["Раскрой ЛДСП", `${mm.nested.count} л. ${mm.g.sheetL} × ${mm.g.sheetW} (${cut.join(", ")}), использование ${Math.round(mm.nested.util * 100)} %`]);
     return rows;
   }
 
   function partsTable(mm) {
-    const rows = mm.built.parts.map((p) => `
+    const rows = mm.built.parts.map((p) => {
+      const info = p.decor ? decorInfo(p.decor) : null;
+      return `
       <tr>
         <td>${p.name}</td>
         <td class="num">${p.w} × ${p.h}</td>
         <td class="num">${p.qty}</td>
-        <td class="mat">${p.material}</td>
-      </tr>`).join("");
+        <td class="mat">${p.material}${info ? ` · <i class="dot" style="background:${info.color}"></i>${info.label.toLowerCase()}` : ""}</td>
+      </tr>`;
+    }).join("");
     const total = mm.built.parts.reduce((a, p) => a + p.qty, 0);
     return `
       <table class="parts-table">
@@ -471,13 +576,29 @@
       </table>`;
   }
 
+  function variantRow(m, current) {
+    if (!(m.variants && m.variants.length > 1)) return "";
+    return `
+      <div class="variant-row" id="variantRow">
+        <span class="variant-caption">Исполнение</span>
+        ${m.variants.map((v) => {
+          const info = decorInfo(v.decors.body);
+          return `<button class="variant-btn${v.id === current ? " is-active" : ""}" data-variant="${v.id}">
+            <i class="dot" style="background:${info ? info.color : "#ccc"}"></i>${v.label}</button>`;
+        }).join("")}
+      </div>`;
+  }
+
   function renderLiveModel(m) {
     const sm = system.models.find((x) => x.id === m.systemModel);
     if (!sm) {
       els.content.innerHTML = `<p class="page-sub">Модель размерной системы «${m.systemModel}» не найдена.</p>`;
       return;
     }
-    const mm = modelOf(sm);
+    const variants = m.variants || [];
+    const current = (variants.find((v) => v.id === state.variants[m.id]) || variants[0] || {}).id;
+    const variant = variants.find((v) => v.id === current);
+    const mm = modelOf(sm, variant ? variant.decors : null);
     const linked = linkedChips(m);
 
     els.content.innerHTML = `
@@ -489,7 +610,13 @@
         <span class="status-pill">${m.status}</span>
       </div>
 
-      ${drawingBlocks(mm, { title: "Фронт" })}
+      ${variantRow(m, current)}
+
+      ${block3d(mm)}
+      ${rendersBlock(mm)}
+      ${frontBlock(mm, "Фронт")}
+      ${planBlock(mm)}
+      ${plinthBlock(mm)}
 
       <section class="section-block">
         <p class="section-title">Спецификация</p>
@@ -512,6 +639,17 @@
 
       ${m.notes ? `<p class="notes-box">${m.notes}</p>` : ""}
     `;
+
+    const row = document.getElementById("variantRow");
+    if (row) {
+      row.addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-variant]");
+        if (!btn) return;
+        state.variants[m.id] = btn.dataset.variant;
+        saveState();
+        renderLiveModel(m);
+      });
+    }
 
     bindStandardChips();
   }
@@ -538,6 +676,13 @@
       <section class="section-block">
         <p class="section-title">3D-вид</p>
         <div class="viewer-3d">3D-модель — заглушка</div>
+      </section>
+
+      <section class="section-block">
+        <p class="section-title">Рендеры</p>
+        <div class="drawings-grid">
+          ${(m.renders || [{ label: "Общий вид" }, { label: "В интерьере" }]).map((d) => `<div class="drawing-card">${d.label}</div>`).join("")}
+        </div>
       </section>
 
       <section class="section-block">

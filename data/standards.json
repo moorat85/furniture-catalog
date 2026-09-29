@@ -33,11 +33,11 @@
       "name": "ЛДСП",
       "type": "swatches",
       "swatches": [
-        { "label": "Белый", "desc": "сплошной", "color": "#FFFFFF", "bordered": true },
-        { "label": "Кофейный", "desc": "сплошной", "color": "#E8E2E3" },
-        { "label": "Деревянный", "desc": "текстурированный", "color": "#D4B57F", "image": "icons/chipboard-woody.webp" },
-        { "label": "Темно-серый", "desc": "сплошной", "color": "#888F99" },
-        { "label": "Оливковый", "desc": "сплошной", "color": "#829373" }
+        { "id": "white", "label": "Белый", "desc": "сплошной", "color": "#FFFFFF", "bordered": true },
+        { "id": "coffee", "label": "Кофейный", "desc": "сплошной", "color": "#E8E2E3" },
+        { "id": "wood", "label": "Деревянный", "desc": "текстурированный", "color": "#D4B57F", "image": "icons/chipboard-woody.webp" },
+        { "id": "graphite", "label": "Темно-серый", "desc": "сплошной", "color": "#888F99" },
+        { "id": "olive", "label": "Оливковый", "desc": "сплошной", "color": "#829373" }
       ]
     },
 

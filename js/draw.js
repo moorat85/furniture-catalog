@@ -267,19 +267,16 @@ window.Draw = (() => {
 
   /* ---------- 3D: косая проекция из тех же панелей ---------- */
 
-  function iso(comp, globals, config, built) {
-    const geo = built && built.corpus && built.corpus.geo;
-    if (!geo) return "";
+  /* Сцена: панели как коробки в порядке рисования + проекция в координаты SVG.
+     x — вправо, y — вверх, z — от задней плоскости к фронту. */
+  function scene(geo, maxW, maxH) {
     const { corpusW, totalH, plinth, panel: P, secs } = geo;
-
-    /* x — вправо, y — вверх, z — от задней плоскости к фронту */
     const boxes = [];
     const add = (x0, x1, y0, y1, z0, z1, kind) => boxes.push({ x0, x1, y0, y1, z0, z1, kind: kind || "" });
 
     add(0, P, plinth, totalH, 0, secs[0].depth);
     add(corpusW - P, corpusW, plinth, totalH, 0, secs[secs.length - 1].depth);
-
-    (geo.plinthBoxes || []).forEach((b) => add(b.x0, b.x1, 0, plinth, b.z0, b.z1));
+    (geo.plinthBoxes || []).forEach((b) => add(b.x0, b.x1, 0, plinth, b.z0, b.z1, "plinth"));
 
     secs.forEach((sec, i) => {
       const D = sec.depth;
@@ -287,7 +284,7 @@ window.Draw = (() => {
 
       add(sec.x0, sec.x1, plinth, plinth + P, 0, D);
       add(sec.x0, sec.x1, totalH - P, totalH, 0, D);
-      add(sec.x0, sec.x1, plinth + P, totalH - P, 0, sec.backT);
+      add(sec.x0, sec.x1, plinth + P, totalH - P, 0, sec.backT, sec.backMat === "ЛДСП" ? "back" : "hdf");
 
       sec.shelfYs.forEach((y) => add(sec.x0, sec.x1, y, y + P, sec.backT, sec.backT + sec.shelfDepth));
       sec.rows.forEach((r) => r.dividers.forEach((dv) => add(dv.x0, dv.x1, r.y0, r.y1, sec.backT, sec.backT + sec.shelfDepth)));
@@ -312,7 +309,7 @@ window.Draw = (() => {
       for (let j = 0; j < boxes.length; j += 1) {
         if (j !== i && before(boxes[j], boxes[i]) && !before(boxes[i], boxes[j])) visit(j);
       }
-      order.push(i);
+      order.push(boxes[i]);
     };
     boxes.forEach((_, i) => visit(i));
 
@@ -329,41 +326,251 @@ window.Draw = (() => {
     });
 
     const pad = 16;
-    const sc = Math.min(560 / (maxX - minX), 500 / (maxY - minY));
+    const sc = Math.min(maxW / (maxX - minX), maxH / (maxY - minY));
     const T = (x, y, z) => {
       const [px, py] = pr(x, y, z);
       return `${((px - minX) * sc + pad).toFixed(1)},${((py - minY) * sc + pad).toFixed(1)}`;
     };
-    const vbW = (maxX - minX) * sc + pad * 2;
-    const vbH = (maxY - minY) * sc + pad * 2;
+    const XY = (x, y, z) => {
+      const [px, py] = pr(x, y, z);
+      return [(px - minX) * sc + pad, (py - minY) * sc + pad];
+    };
+
+    return { order, T, XY, sc, vbW: (maxX - minX) * sc + pad * 2, vbH: (maxY - minY) * sc + pad * 2 };
+  }
+
+  const facePts = (T, b) => ({
+    front: [T(b.x0, b.y0, b.z1), T(b.x1, b.y0, b.z1), T(b.x1, b.y1, b.z1), T(b.x0, b.y1, b.z1)],
+    top: [T(b.x0, b.y1, b.z0), T(b.x1, b.y1, b.z0), T(b.x1, b.y1, b.z1), T(b.x0, b.y1, b.z1)],
+    right: [T(b.x1, b.y0, b.z0), T(b.x1, b.y0, b.z1), T(b.x1, b.y1, b.z1), T(b.x1, b.y1, b.z0)],
+  });
+
+  function iso(comp, globals, config, built) {
+    const geo = built && built.corpus && built.corpus.geo;
+    if (!geo) return "";
+    const sc = scene(geo, 560, 500);
 
     const poly = (cls, pts) => `<polygon class="${cls}" points="${pts.join(" ")}"/>`;
-    const out = order.map((i) => {
-      const b = boxes[i];
+    const out = sc.order.map((b) => {
       const kind = b.kind ? ` ${b.kind}` : "";
-      return `<g>`
-        + poly(`iso-front${kind}`, [T(b.x0, b.y0, b.z1), T(b.x1, b.y0, b.z1), T(b.x1, b.y1, b.z1), T(b.x0, b.y1, b.z1)])
-        + poly(`iso-top${kind}`, [T(b.x0, b.y1, b.z0), T(b.x1, b.y1, b.z0), T(b.x1, b.y1, b.z1), T(b.x0, b.y1, b.z1)])
-        + poly(`iso-right${kind}`, [T(b.x1, b.y0, b.z0), T(b.x1, b.y0, b.z1), T(b.x1, b.y1, b.z1), T(b.x1, b.y1, b.z0)])
-        + `</g>`;
+      const f = facePts(sc.T, b);
+      return `<g>${poly(`iso-front${kind}`, f.front)}${poly(`iso-top${kind}`, f.top)}${poly(`iso-right${kind}`, f.right)}</g>`;
     }).join("");
 
     return `
-      <svg class="iso" viewBox="0 0 ${vbW.toFixed(1)} ${vbH.toFixed(1)}" preserveAspectRatio="xMidYMid meet" role="img"
+      <svg class="iso" viewBox="0 0 ${sc.vbW.toFixed(1)} ${sc.vbH.toFixed(1)}" preserveAspectRatio="xMidYMid meet" role="img"
            aria-label="Объёмный вид">
         ${out}
       </svg>`;
   }
 
+  /* ---------- рендеры: та же геометрия, но в реальных цветах декоров ---------- */
+
+  const hexRgb = (h) => {
+    const v = h.replace("#", "");
+    return [0, 2, 4].map((i) => parseInt(v.slice(i, i + 2), 16));
+  };
+  const rgbHex = (a) => "#" + a.map((c) => Math.max(0, Math.min(255, Math.round(c))).toString(16).padStart(2, "0")).join("");
+  /* f > 0 — светлее, f < 0 — темнее */
+  const shade = (hex, f) => rgbHex(hexRgb(hex).map((c) => (f >= 0 ? c + (255 - c) * f : c * (1 + f))));
+  /* Чисто белый на белом фоне не читается — берём тёплый off-white. */
+  const soft = (hex) => (hexRgb(hex).every((c) => c >= 245) ? "#F1F1EE" : hex);
+  const EDGE = "rgba(20,22,26,0.34)";
+
+  function tex(id, pal, size, sc) {
+    if (!pal.image) return "";
+    const t = (size * sc).toFixed(1);
+    return `<pattern id="${id}" patternUnits="userSpaceOnUse" width="${t}" height="${t}">
+        <image href="${pal.image}" width="${t}" height="${t}" preserveAspectRatio="xMidYMid slice"/>
+      </pattern>`;
+  }
+
+  /* pal: { body: { color }, back: { color, image? } } */
+  function render3q(comp, globals, config, built, pal) {
+    const geo = built && built.corpus && built.corpus.geo;
+    if (!geo) return "";
+    const sc = scene(geo, 520, 470);
+    const body = soft(pal.body.color);
+    const backC = pal.back.color;
+
+    const paint = (b) => {
+      if (b.kind === "pull") return { front: "#2A2D33", top: "#2A2D33", right: "#2A2D33" };
+      if (b.kind === "hdf") return { front: "#CDBFA6", top: "#D8CCB6", right: "#B9AB92" };
+      if (b.kind === "back") return { front: pal.back.image ? "url(#tex3q)" : backC, top: shade(backC, 0.1), right: shade(backC, -0.16) };
+      const base = b.kind === "plinth" ? shade(body, -0.1) : body;
+      return { front: base, top: shade(base, 0.1), right: shade(base, -0.15) };
+    };
+
+    const out = sc.order.map((b) => {
+      const c = paint(b);
+      const f = facePts(sc.T, b);
+      const pg = (pts, fill) => `<polygon points="${pts.join(" ")}" fill="${fill}" stroke="${EDGE}" stroke-width="0.6" stroke-linejoin="round"/>`;
+      return `<g>${pg(f.front, c.front)}${pg(f.top, c.top)}${pg(f.right, c.right)}</g>`;
+    }).join("");
+
+    const [cx, cy] = sc.XY(geo.corpusW / 2, 0, Math.max(...geo.secs.map((x) => x.depth)) / 2);
+    const rx = geo.corpusW * sc.sc * 0.66;
+
+    return `
+      <svg class="render" viewBox="0 0 ${sc.vbW.toFixed(1)} ${sc.vbH.toFixed(1)}" preserveAspectRatio="xMidYMid meet" role="img"
+           aria-label="Рендер, вид в три четверти">
+        <defs>
+          <filter id="rShadow3q" x="-30%" y="-100%" width="160%" height="300%"><feGaussianBlur stdDeviation="7"/></filter>
+          ${tex("tex3q", pal.back, 480, sc.sc)}
+        </defs>
+        <ellipse cx="${cx.toFixed(1)}" cy="${(cy + 6).toFixed(1)}" rx="${rx.toFixed(1)}" ry="${(rx * 0.16).toFixed(1)}" fill="#14161a" fill-opacity="0.16" filter="url(#rShadow3q)"/>
+        ${out}
+      </svg>`;
+  }
+
+  function renderFront(comp, globals, config, built, pal) {
+    const geo = built && built.corpus && built.corpus.geo;
+    if (!geo) return "";
+    const { corpusW: totalW, totalH, plinth, panel, secs } = geo;
+
+    const pad = 26;
+    const s = Math.min(520 / totalW, 470 / totalH);
+    const X = (mm) => pad + mm * s;
+    const Y = (mm) => pad + (totalH - mm) * s;
+    const vbW = totalW * s + pad * 2;
+    const vbH = totalH * s + pad * 2 + 8;
+
+    const body = soft(pal.body.color);
+    const backC = pal.back.color;
+    const rect = (x0, x1, y0, y1, fill, extra) =>
+      `<rect x="${X(x0).toFixed(1)}" y="${Y(y1).toFixed(1)}" width="${((x1 - x0) * s).toFixed(1)}" height="${((y1 - y0) * s).toFixed(1)}" fill="${fill}"${extra || ""}/>`;
+    const panelRect = (x0, x1, y0, y1, fill) => rect(x0, x1, y0, y1, fill, ` stroke="${EDGE}" stroke-width="0.7"`);
+    const shadow = (x0, x1, y1, h) => rect(x0, x1, y1 - h, y1, "#14161a", ' fill-opacity="0.12"');
+
+    let g = "";
+    secs.forEach((sec) => {
+      const isWood = sec.backMat === "ЛДСП";
+      g += rect(sec.x0, sec.x1, plinth + panel, totalH - panel, isWood ? (pal.back.image ? "url(#texFront)" : backC) : "#CDBFA6");
+      if (sec.kind === "shelving") {
+        g += shadow(sec.x0, sec.x1, totalH - panel, 18);
+        sec.shelfYs.forEach((y) => { g += shadow(sec.x0, sec.x1, y, 18); });
+        sec.rows.forEach((r) => r.dividers.forEach((dv) => { g += rect(dv.x1, dv.x1 + 14, r.y0, r.y1, "#14161a", ' fill-opacity="0.12"'); }));
+      }
+    });
+
+    g += panelRect(0, panel, plinth, totalH, body);
+    g += panelRect(totalW - panel, totalW, plinth, totalH, body);
+    secs.forEach((sec, i) => {
+      if (i < secs.length - 1) g += panelRect(sec.x1, sec.x1 + panel, plinth + panel, totalH - panel, body);
+      g += panelRect(sec.x0, sec.x1, plinth, plinth + panel, body);
+      g += panelRect(sec.x0, sec.x1, totalH - panel, totalH, body);
+      sec.shelfYs.forEach((y) => { g += panelRect(sec.x0, sec.x1, y, y + panel, body); });
+      sec.rows.forEach((r) => r.dividers.forEach((dv) => { g += panelRect(dv.x0, dv.x1, r.y0, r.y1, body); }));
+    });
+
+    g += shadow(0, totalW, plinth, 14);
+    g += panelRect(0, totalW, 0, plinth, shade(body, -0.1));
+
+    secs.forEach((sec) => sec.doors.forEach((d) => {
+      g += panelRect(d.x0, d.x1, d.y0, d.y1, body);
+      const my = (d.y0 + d.y1) / 2;
+      g += `<line x1="${(X(d.x1) - 7).toFixed(1)}" y1="${Y(my + 80).toFixed(1)}" x2="${(X(d.x1) - 7).toFixed(1)}" y2="${Y(my - 80).toFixed(1)}" stroke="#2A2D33" stroke-width="2.2" stroke-linecap="round"/>`;
+    }));
+
+    return `
+      <svg class="render" viewBox="0 0 ${vbW.toFixed(1)} ${vbH.toFixed(1)}" preserveAspectRatio="xMidYMid meet" role="img"
+           aria-label="Рендер, вид спереди">
+        <defs>${tex("texFront", pal.back, 480, s)}</defs>
+        <ellipse cx="${(vbW / 2).toFixed(1)}" cy="${(Y(0) + 6).toFixed(1)}" rx="${(totalW * s * 0.6).toFixed(1)}" ry="6" fill="#14161a" fill-opacity="0.14"/>
+        ${g}
+      </svg>`;
+  }
+
+  /* ---------- сечение цоколя: рейки и перекладины, вид сверху ---------- */
+
+  function plinthSection(comp, globals, config, built) {
+    const geo = built && built.corpus && built.corpus.geo;
+    if (!geo || !geo.plinthBoxes || !geo.plinthBoxes.length) return "";
+    const { corpusW: totalW, panel: P, secs, setback } = geo;
+    const maxD = Math.max(...secs.map((x) => x.depth));
+
+    const padL = 56, padR = 60, padT = 46, padB = 44;
+    const s = 560 / totalW;
+    const X = (mm) => padL + mm * s;
+    const Z = (mm) => padT + mm * s;
+    const vbW = padL + totalW * s + padR;
+    const vbH = padT + maxD * s + padB;
+
+    const rect = (cls, x0, x1, z0, z1) =>
+      `<rect class="${cls}" x="${X(x0).toFixed(1)}" y="${Z(z0).toFixed(1)}" width="${((x1 - x0) * s).toFixed(1)}" height="${((z1 - z0) * s).toFixed(1)}"/>`;
+
+    let g = "";
+    /* контур корпуса над цоколем — для привязки: рейки утоплены от лицевой плоскости */
+    secs.forEach((sec) => { g += rect("pl-outline", sec.x0 - P, sec.x1 + P, 0, sec.depth); });
+    geo.plinthBoxes.forEach((b) => { g += rect("pl-cut", b.x0, b.x1, b.z0, b.z1); });
+
+    let dims = dimH(X(0), X(totalW), padT - 24, `${totalW}`, { accent: true });
+    const dp = (sec) => sec.depth - setback;
+
+    secs.forEach((sec) => {
+      /* просветы между стенками и продольными рейками — сколько остаётся между опорами */
+      const ribs = geo.plinthBoxes
+        .filter((b) => b.role === "rib" && b.label === sec.label && (b.z1 - b.z0) > (b.x1 - b.x0))
+        .sort((a, b) => a.x0 - b.x0);
+      const edges = [sec.x0];
+      ribs.forEach((r) => { edges.push(r.x0, r.x1); });
+      edges.push(sec.x1);
+      for (let i = 0; i < edges.length; i += 2) {
+        dims += dimH(X(edges[i]), X(edges[i + 1]), Z(maxD) + 24, `${Math.round(edges[i + 1] - edges[i])}`);
+      }
+
+      /* поперечные перекладины: просветы вдоль глубины */
+      const cross = geo.plinthBoxes
+        .filter((b) => b.role === "rib" && b.label === sec.label && (b.x1 - b.x0) >= (b.z1 - b.z0))
+        .sort((a, b) => a.z0 - b.z0);
+      if (cross.length) {
+        const zs = [P];
+        cross.forEach((r) => { zs.push(r.z0, r.z1); });
+        zs.push(dp(sec) - P);
+        const x = X(sec.x0) + 16;
+        for (let i = 0; i < zs.length; i += 2) {
+          dims += dimV(Z(zs[i]), Z(zs[i + 1]), x, `${Math.round(zs[i + 1] - zs[i])}`);
+        }
+      }
+
+      /* отступ фронта цоколя от лицевой плоскости корпуса */
+      if (setback > 0) {
+        const mid = X(sec.x0) + (sec.x1 - sec.x0) * s * 0.72;
+        dims += dimV(Z(dp(sec)), Z(sec.depth), mid, `${setback}`);
+      }
+    });
+
+    dims += dimV(Z(0), Z(dp(secs[0])), X(0) - 14, `${dp(secs[0])}`, { accent: true, left: true });
+    const last = secs[secs.length - 1];
+    if (dp(last) !== dp(secs[0])) dims += dimV(Z(0), Z(dp(last)), X(totalW) + 14, `${dp(last)}`, { accent: true });
+
+    return `
+      <svg class="plan plinth-sec" viewBox="0 0 ${vbW.toFixed(1)} ${vbH.toFixed(1)}" preserveAspectRatio="xMidYMid meet" role="img"
+           aria-label="Сечение цоколя, вид сверху">
+        <defs>
+          <pattern id="hatchPl" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <line x1="0" y1="0" x2="0" y2="5" stroke="#8a909a" stroke-width="1"/>
+          </pattern>
+        </defs>
+        ${g}
+        ${dims}
+      </svg>`;
+  }
+
   /* ---------- превью раскроя ---------- */
 
-  function sheets(nested, globals, limit) {
+  function sheets(nested, globals, limit, decorInfo) {
     const L = globals.sheetL;
     const W = globals.sheetW;
     const show = nested.sheets.slice(0, limit || 4);
     if (!show.length) return "";
 
     const s = 420 / L;
+    const dec = (id) => {
+      const info = id && decorInfo ? decorInfo(id) : null;
+      if (!info) return "";
+      return ` · <i class="dot" style="background:${info.color}"></i>${esc(info.label)}`;
+    };
 
     return show
       .map((sh, idx) => {
@@ -376,11 +583,11 @@ window.Draw = (() => {
         return `
           <figure class="sheet-fig">
             <svg viewBox="0 0 ${L * s} ${W * s}" class="sheet-svg">${g}</svg>
-            <figcaption>Лист ${idx + 1}${sh.oversize ? " · деталь не влезает" : ""}</figcaption>
+            <figcaption>Лист ${idx + 1}${dec(sh.decor)}${sh.oversize ? " · деталь не влезает" : ""}</figcaption>
           </figure>`;
       })
       .join("");
   }
 
-  return { elevation, plan, iso, sheets };
+  return { elevation, plan, iso, render3q, renderFront, plinthSection, sheets };
 })();

@@ -795,8 +795,8 @@
       }
     },
     {
-      "id": "c-perviy",
-      "name": "Первый",
+      "id": "c-tori",
+      "name": "Тори",
       "category": "combo",
       "config": {
         "width": 3,
@@ -848,7 +848,11 @@
               }
             ]
           }
-        ]
+        ],
+        "decors": {
+          "body": "white",
+          "back": "wood"
+        }
       }
     }
   ]
