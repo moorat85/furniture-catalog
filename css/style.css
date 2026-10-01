@@ -277,7 +277,7 @@ a { color: inherit; text-decoration: none; }
 .module-sep { height: 1px; background: var(--stroke); margin: 0 16px; }
 .module-block { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .module-block .section-title { margin: 0; }
-.elevation.module-view { height: auto; max-height: 440px; }
+.elevation.module-view { width: auto; max-width: 100%; height: auto; margin: 0 auto; }
 .elevation .axis-unused { stroke: var(--blue); stroke-width: 0.7; stroke-dasharray: 10 3 2 3; opacity: .55; }
 
 @media (max-width: 900px) { .module-grid { grid-template-columns: 1fr; } }
@@ -901,3 +901,4 @@ a { color: inherit; text-decoration: none; }
   .sidebar { display: none; }
   .content { padding: 24px 20px 60px; }
 }
+.elevation.module-view .dim text { font-size: 11px; }

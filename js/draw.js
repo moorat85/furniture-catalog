@@ -163,35 +163,28 @@ window.Draw = (() => {
     const W = stepW + panel, H = stepH + panel;
     const canvasH = (o.canvasStepH ? (o.half ? o.canvasStepH / 2 : o.canvasStepH) : stepH) + panel;
     const door = !!o.door;
-    const s = 0.62;
+    const s = 0.42;
     const padL = 20, padR = 78, padT = 16, padB = 46;
     const X = (mm) => padL + mm * s;
     const Y = (mm) => padT + (H - mm) * s;
     const vbW = padL + W * s + padR, vbH = padT + canvasH * s + padB;
-    const hP = (x0, x1, y0, y1) => `
+    const hP_unused = (x0, x1, y0, y1) => `
       <line class="edge" x1="${X(x0)}" y1="${Y(y0)}" x2="${X(x1)}" y2="${Y(y0)}"/>
       <line class="edge" x1="${X(x0)}" y1="${Y(y1)}" x2="${X(x1)}" y2="${Y(y1)}"/>`;
     const vP = (y0, y1, x0, x1) => `
       <line class="edge" x1="${X(x0)}" y1="${Y(y0)}" x2="${X(x0)}" y2="${Y(y1)}"/>
       <line class="edge" x1="${X(x1)}" y1="${Y(y0)}" x2="${X(x1)}" y2="${Y(y1)}"/>`;
 
-    let g = `<rect class="field" x="${X(0)}" y="${Y(H)}" width="${W * s}" height="${H * s}"/>`;
-    g += vP(0, H, 0, panel) + vP(0, H, W - panel, W);
-    g += hP(0, W, 0, panel) + hP(0, W, H - panel, H);
-
-    if (door) {
-      const fx0 = panel / 2 + gap / 2, fx1 = W - panel / 2 - gap / 2;
-      const fy0 = panel / 2 + gap / 2, fy1 = H - panel / 2 - gap / 2;
-      g += `<rect class="drawer" x="${X(fx0)}" y="${Y(fy1)}" width="${(fx1 - fx0) * s}" height="${(fy1 - fy0) * s}"/>`;
-      g += `<line class="pull" x1="${X(fx1) - 10}" y1="${Y(H / 2) - 14}" x2="${X(fx1) - 10}" y2="${Y(H / 2) + 14}"/>`;
-    }
+    /* только наружный контур */
+    const g = `<rect class="field" x="${X(0)}" y="${Y(H)}" width="${W * s}" height="${H * s}"/>
+      <rect class="drawer" x="${X(0)}" y="${Y(H)}" width="${W * s}" height="${H * s}"/>`;
 
     /* размеры — только по внутренним граням */
     const d = dimH(X(panel), X(W - panel), Y(0) + 24, `${W - 2 * panel}`)
             + dimV(Y(H - panel), Y(panel), X(W) + 24, `${H - 2 * panel}`);
 
     return `
-      <svg class="elevation module-view" viewBox="0 0 ${vbW} ${vbH}" preserveAspectRatio="xMidYMin meet" role="img"
+      <svg class="elevation module-view" width="${vbW}" height="${vbH}" viewBox="0 0 ${vbW} ${vbH}" preserveAspectRatio="xMidYMin meet" role="img"
            aria-label="${o.half ? "Полумодуль" : "Модуль"}, внутри ${W - 2 * panel} на ${H - 2 * panel} мм">
         ${g}${d}
       </svg>`;
