@@ -13,7 +13,7 @@
   --blue: #0055FF;
   --blue-soft: rgba(0, 85, 255, 0.08);
   --sidebar-w: 320px;
-  --ff-sans: "Montserrat", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --ff-sans: "Google Sans Flex", "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
 * { box-sizing: border-box; }
