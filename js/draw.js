@@ -161,12 +161,13 @@ window.Draw = (() => {
     const stepW = comp.stepW;
     const stepH = o.half ? comp.stepH / 2 : comp.stepH;
     const W = stepW + panel, H = stepH + panel;
+    const canvasH = (o.canvasStepH ? (o.half ? o.canvasStepH / 2 : o.canvasStepH) : stepH) + panel;
     const door = !!o.door;
     const s = 0.62;
-    const padL = 84, padR = 92, padT = 40, padB = door ? 98 : 74;
+    const padL = 20, padR = 78, padT = 16, padB = 46;
     const X = (mm) => padL + mm * s;
     const Y = (mm) => padT + (H - mm) * s;
-    const vbW = padL + W * s + padR, vbH = padT + H * s + padB;
+    const vbW = padL + W * s + padR, vbH = padT + canvasH * s + padB;
     const hP = (x0, x1, y0, y1) => `
       <line class="edge" x1="${X(x0)}" y1="${Y(y0)}" x2="${X(x1)}" y2="${Y(y0)}"/>
       <line class="edge" x1="${X(x0)}" y1="${Y(y1)}" x2="${X(x1)}" y2="${Y(y1)}"/>`;
@@ -178,13 +179,6 @@ window.Draw = (() => {
     g += vP(0, H, 0, panel) + vP(0, H, W - panel, W);
     g += hP(0, W, 0, panel) + hP(0, W, H - panel, H);
 
-    /* оси модуля — штрихпунктир по центрам стоек и полок */
-    const ax = (x1, y1, x2, y2) => `<line class="axis" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
-    g += ax(X(panel / 2), Y(-10), X(panel / 2), Y(H + 10));
-    g += ax(X(W - panel / 2), Y(-10), X(W - panel / 2), Y(H + 10));
-    g += ax(X(-10), Y(panel / 2), X(W + 10), Y(panel / 2));
-    g += ax(X(-10), Y(H - panel / 2), X(W + 10), Y(H - panel / 2));
-
     if (door) {
       const fx0 = panel / 2 + gap / 2, fx1 = W - panel / 2 - gap / 2;
       const fy0 = panel / 2 + gap / 2, fy1 = H - panel / 2 - gap / 2;
@@ -192,23 +186,14 @@ window.Draw = (() => {
       g += `<line class="pull" x1="${X(fx1) - 10}" y1="${Y(H / 2) - 14}" x2="${X(fx1) - 10}" y2="${Y(H / 2) + 14}"/>`;
     }
 
-    let d = "";
-    d += dimH(X(0), X(W), Y(H) - 16, `${W}`, { accent: true });
-    d += dimH(X(panel), X(W - panel), Y(0) + 22, `${W - 2 * panel}`);
-    d += dimH(X(panel / 2), X(W - panel / 2), Y(0) + 44, `${stepW}`);
-    d += dimV(Y(H), Y(0), X(W) + 22, `${H}`, { accent: true });
-    d += dimV(Y(H - panel), Y(panel), X(W) + 52, `${H - 2 * panel}`);
-    d += dimV(Y(H - panel / 2), Y(panel / 2), X(0) - 22, `${stepH}`, { left: true });
-    d += dimV(Y(H), Y(H - panel), X(0) - 52, `${panel}`, { left: true });
-    if (door) {
-      d += dimH(X(panel / 2 + gap / 2), X(W - panel / 2 - gap / 2), Y(0) + 66, `${stepW - gap}`);
-      d += dimV(Y(H - panel / 2 - gap / 2), Y(panel / 2 + gap / 2), X(0) - 82, `${stepH - gap}`, { left: true });
-    }
+    /* размеры — только по внутренним граням */
+    const d = dimH(X(panel), X(W - panel), Y(0) + 24, `${W - 2 * panel}`)
+            + dimV(Y(H - panel), Y(panel), X(W) + 24, `${H - 2 * panel}`);
 
     return `
-      <svg class="elevation module-view" viewBox="0 0 ${vbW + (door ? 30 : 0)} ${vbH}" preserveAspectRatio="xMidYMid meet" role="img"
-           aria-label="${o.half ? "Полумодуль" : "Модуль"}, ${W} на ${H} мм">
-        <g transform="translate(${door ? 30 : 0},0)">${g}${d}</g>
+      <svg class="elevation module-view" viewBox="0 0 ${vbW} ${vbH}" preserveAspectRatio="xMidYMin meet" role="img"
+           aria-label="${o.half ? "Полумодуль" : "Модуль"}, внутри ${W - 2 * panel} на ${H - 2 * panel} мм">
+        ${g}${d}
       </svg>`;
   }
 

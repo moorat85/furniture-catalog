@@ -121,7 +121,7 @@
 
   function catById(id) { return system.categories.find((c) => c.id === id); }
 
-  function moduleBlock(cat, title, door) {
+  function moduleBlock(cat, title, door, canvasStepH) {
     const v = valuesOf(cat.vars, null);
     const g = valuesOf(system.globals, null);
     const l = valuesOf(system.limits, null);
@@ -131,9 +131,11 @@
     return `
       <section class="module-block">
         <p class="section-title">${title}</p>
-        <div class="drawing-stage">${Draw.moduleView(comp, g, { door })}</div>
-        <p class="section-title">Полумодуль</p>
-        <div class="drawing-stage">${Draw.moduleView(comp, g, { door, half: true })}</div>
+        <div class="drawing-stage module-island">
+          ${Draw.moduleView(comp, g, { door, canvasStepH })}
+          <div class="module-sep"></div>
+          ${Draw.moduleView(comp, g, { door, half: true, canvasStepH })}
+        </div>
         <table class="ro-table"><tbody>${info}</tbody></table>
       </section>`;
   }
@@ -141,6 +143,7 @@
   function renderSystem() {
     const wardrobe = catById("wardrobe");
     const shelving = catById("shelving");
+    const maxStep = Math.max(...[wardrobe, shelving].filter(Boolean).map((c) => valuesOf(c.vars, null).stepH));
 
     els.content.innerHTML = `
       <div class="page-header">
@@ -149,8 +152,8 @@
       </div>
 
       <div class="module-grid">
-        ${wardrobe ? moduleBlock(wardrobe, "Шкафной модуль", true) : ""}
-        ${shelving ? moduleBlock(shelving, "Стеллажный модуль", false) : ""}
+        ${wardrobe ? moduleBlock(wardrobe, "Шкафной модуль", true, maxStep) : ""}
+        ${shelving ? moduleBlock(shelving, "Стеллажный модуль", false, maxStep) : ""}
       </div>
 
       <div class="ro-section" id="roSection"></div>
