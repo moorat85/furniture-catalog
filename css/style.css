@@ -360,6 +360,7 @@ a { color: inherit; text-decoration: none; }
 
 .ro-table .ro-value {
   width: 16%;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -669,7 +670,7 @@ a { color: inherit; text-decoration: none; }
 }
 
 .spec-table td:first-child { color: var(--text-muted); width: 45%; }
-.spec-table td:last-child { font-weight: 500; }
+.spec-table td:last-child { font-weight: 600; }
 
 .linked-standards {
   display: flex;
