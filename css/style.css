@@ -902,3 +902,5 @@ a { color: inherit; text-decoration: none; }
   .content { padding: 24px 20px 60px; }
 }
 .elevation.module-view .dim text { font-size: 11px; }
+.module-block .ro-table { margin-top: -12px; }
+.module-block .ro-table tr:first-child td { border-top: none; }
