@@ -68,9 +68,9 @@
 
   function modelOf(mdl, decors) {
     const cat = catOf(mdl);
-    const g = valuesOf(system.globals, state.overrides.globals);
-    const l = valuesOf(system.limits, state.overrides.limits);
-    const v = valuesOf(cat.vars, state.overrides.cats[cat.id]);
+    const g = valuesOf(system.globals, null);
+    const l = valuesOf(system.limits, null);
+    const v = valuesOf(cat.vars, null);
     const comp = Engine.compute(cat, v, g, l);
     const cfg = decors ? { ...mdl.config, decors: { ...(mdl.config.decors || {}), ...decors } } : mdl.config;
     const built = Engine.buildParts(comp, g, cfg);
@@ -119,153 +119,44 @@
 
   /* ================= страница «Система размеров» ================= */
 
+  function catById(id) { return system.categories.find((c) => c.id === id); }
+
+  function moduleBlock(cat, title, door) {
+    const v = valuesOf(cat.vars, null);
+    const g = valuesOf(system.globals, null);
+    const l = valuesOf(system.limits, null);
+    const comp = Engine.compute(cat, v, g, l);
+    const info = cat.vars.filter((x) => !x.hidden).map((x) => `
+        <tr><td class="ro-name">${x.label}</td><td class="ro-value">${v[x.id]}${x.unit ? " " + x.unit : ""}</td></tr>`).join("");
+    return `
+      <section class="module-block">
+        <p class="section-title">${title}</p>
+        <div class="drawing-stage">${Draw.moduleView(comp, g, { door })}</div>
+        <p class="section-title">Полумодуль</p>
+        <div class="drawing-stage">${Draw.moduleView(comp, g, { door, half: true })}</div>
+        <table class="ro-table"><tbody>${info}</tbody></table>
+      </section>`;
+  }
+
   function renderSystem() {
-    const m = model();
+    const wardrobe = catById("wardrobe");
+    const shelving = catById("shelving");
 
     els.content.innerHTML = `
       <div class="page-header">
         <h1 class="page-title">Система размеров</h1>
-        <p class="page-sub">Модули и глубины редактируются здесь — чертёж и раскрой пересчитываются на ходу. Остальные параметры показаны ниже справочно и правятся в <code>data/system.json</code>.</p>
+        <p class="page-sub">Модуль и полумодуль шкафной и стеллажной частей. Значения только для справки — правятся в <code>data/system.json</code>.</p>
       </div>
 
-      <div class="sys-tabs" id="sysTabs">
-        ${system.categories.map((c) => `
-          <button class="sys-tab${c.id === m.cat.id ? " is-active" : ""}" data-cat="${c.id}"><span>${c.plural || c.name}</span></button>`).join("")}
-      </div>
-
-      <div class="sys-layout">
-        <aside class="sys-controls" id="sysControls"></aside>
-        <div class="sys-output" id="sysOutput"></div>
+      <div class="module-grid">
+        ${wardrobe ? moduleBlock(wardrobe, "Шкафной модуль", true) : ""}
+        ${shelving ? moduleBlock(shelving, "Стеллажный модуль", false) : ""}
       </div>
 
       <div class="ro-section" id="roSection"></div>
     `;
 
-    renderControls();
-    renderOutput();
     renderReadOnly();
-
-    document.getElementById("sysTabs").addEventListener("click", (e) => {
-      const btn = e.target.closest("[data-cat]");
-      if (!btn) return;
-      const first = system.models.find((x) => x.category === btn.dataset.cat);
-      if (!first) return;
-      state.modelId = first.id;
-      saveState();
-      renderSystem();
-    });
-  }
-
-  function renderControls() {
-    const m = model();
-    const editable = m.cat.vars.filter((v) => v.editable);
-
-    document.getElementById("sysControls").innerHTML = `
-      <div class="ctrl-group">
-        <p class="ctrl-group-title">Модули · ${m.cat.name}</p>
-        ${editable.map((v) => `
-          <label class="ctrl">
-            <span class="ctrl-label">${v.label}</span>
-            <span class="ctrl-val">
-              <input type="number" value="${m.v[v.id]}" min="${v.min}" max="${v.max}" step="${v.step}"
-                     data-input="cat:${v.id}" aria-label="${v.label}">
-              ${v.unit ? `<span class="ctrl-unit">${v.unit}</span>` : ""}
-            </span>
-          </label>`).join("")}
-      </div>
-
-      <div class="ctrl-actions">
-        <button class="btn" id="sysReset">Сбросить</button>
-        <button class="btn btn-primary" id="sysExport">Скопировать JSON</button>
-      </div>
-      <p class="ctrl-hint" id="sysHint"></p>
-    `;
-
-    document.getElementById("sysControls").addEventListener("input", onControlInput);
-    document.getElementById("sysReset").addEventListener("click", () => {
-      state.overrides = { globals: {}, limits: {}, cats: {} };
-      saveState();
-      renderSystem();
-    });
-    document.getElementById("sysExport").addEventListener("click", exportJson);
-  }
-
-  function onControlInput(e) {
-    const key = e.target.dataset.input;
-    if (!key) return;
-    const id = key.split(":")[1];
-    const num = Number(e.target.value);
-    if (!Number.isFinite(num)) return;
-
-    const cid = catOf(activeModel()).id;
-    state.overrides.cats[cid] = state.overrides.cats[cid] || {};
-    state.overrides.cats[cid][id] = num;
-
-    saveState();
-    renderOutput();
-    renderReadOnly();
-  }
-
-  function exportJson() {
-    const m = model();
-    const out = {
-      globals: m.g,
-      limits: m.l,
-      categories: system.categories.reduce((acc, c) => {
-        acc[c.id] = valuesOf(c.vars, state.overrides.cats[c.id]);
-        return acc;
-      }, {}),
-    };
-    const text = JSON.stringify(out, null, 2);
-    const hint = document.getElementById("sysHint");
-    const done = (msg) => { if (hint) { hint.textContent = msg; setTimeout(() => (hint.textContent = ""), 2400); } };
-
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(
-        () => done("Скопировано — вставь в data/system.json"),
-        () => done("Не удалось скопировать, значения в консоли")
-      );
-    } else {
-      done("Значения в консоли браузера");
-    }
-    console.log(text);
-  }
-
-  /* Модели текущей категории, сгруппированные по ширине: 1W, 2W, … */
-  function modelSwitch(m) {
-    const mine = system.models.filter((x) => x.category === m.cat.id);
-    const byWidth = {};
-    mine.forEach((x) => { (byWidth[x.config.width] = byWidth[x.config.width] || []).push(x); });
-
-    const rows = Object.keys(byWidth)
-      .map(Number)
-      .sort((a, b) => a - b)
-      .map((n) => `
-        <div class="mw-row">
-          <span class="mw-code">${n}W</span>
-          ${byWidth[n].map((x) => `
-            <button class="mw-item${x.id === m.mdl.id ? " is-active" : ""}" data-model="${x.id}">${x.name}</button>`).join("")}
-        </div>`);
-
-    return `<div class="model-switch" id="modelSwitch">${rows.join("")}</div>`;
-  }
-
-  function renderOutput() {
-    const m = model();
-
-    document.getElementById("sysOutput").innerHTML = `
-      ${modelSwitch(m)}
-      ${drawingBlocks(m)}
-      ${cuttingBlock(m)}
-    `;
-
-    document.getElementById("modelSwitch").addEventListener("click", (e) => {
-      const btn = e.target.closest("[data-model]");
-      if (!btn) return;
-      state.modelId = btn.dataset.model;
-      saveState();
-      renderOutput();
-    });
   }
 
   /* Фронт, а для секционных изделий ещё объём, вид сверху и сечение цоколя. */
@@ -388,8 +279,8 @@
   /* ---------- справочные параметры под чертежом, во всю ширину ---------- */
 
   function renderReadOnly() {
-    const m = model();
-    const fixed = m.cat.vars.filter((v) => !v.editable && !v.hidden);
+    const g = valuesOf(system.globals, null);
+    const l = valuesOf(system.limits, null);
 
     const groups = {};
     system.globals.forEach((v) => { (groups[v.group || "Прочее"] = groups[v.group || "Прочее"] || []).push(v); });
@@ -408,9 +299,8 @@
       });
     };
 
-    pushGroup(m.cat.name, fixed, m.v);
-    Object.keys(groups).forEach((gname) => pushGroup(gname, groups[gname], m.g));
-    pushGroup("Пределы", system.limits, m.l);
+    Object.keys(groups).forEach((gname) => pushGroup(gname, groups[gname], g));
+    pushGroup("Пределы", system.limits, l);
 
     document.getElementById("roSection").innerHTML = `
       <div class="ro-divider"></div>
